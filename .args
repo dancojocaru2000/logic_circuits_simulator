@@ -1,0 +1,11 @@
+>Compile Time Argument
+-flutter
+-build
+-linux
+>Run Time Argument
+-flutter
+-run
+>Compile Time Working Directory
+-logic_circuits_simulator
+>Run Time Working Directory
+-logic_circuits_simulator
