@@ -40,7 +40,7 @@ class ProjectState extends ChangeNotifier {
     final indexFile = await _getIndexFile();
     if (!await indexFile.exists()) {
       _index = const ProjectIndex(components: []);
-      await indexFile.writeAsString(jsonEncode(_index.toJson()));
+      await indexFile.writeAsString(const JsonEncoder.withIndent("  ").convert(_index.toJson()));
     }
     else {
       _index = ProjectIndex.fromJson(jsonDecode(await indexFile.readAsString()));
@@ -51,7 +51,7 @@ class ProjectState extends ChangeNotifier {
     _dirty = true;
     _index = newIndex;
     final indexFile = await _getIndexFile();
-    await indexFile.writeAsString(jsonEncode(index.toJson()));
+    await indexFile.writeAsString(const JsonEncoder.withIndent("  ").convert(index.toJson()));
     notifyListeners();
   }
 

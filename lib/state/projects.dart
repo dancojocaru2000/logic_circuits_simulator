@@ -33,7 +33,7 @@ class ProjectsState extends ChangeNotifier {
     // Sort projects when updating: latest update first
     index = newIndex.copyWith(projects: newIndex.projects.toList()..sort((p1, p2) => p2.lastUpdate.compareTo(p1.lastUpdate)));
     final indexFile = await _getIndexFile();
-    await indexFile.writeAsString(jsonEncode(index.toJson()));
+    await indexFile.writeAsString(const JsonEncoder.withIndent("  ").convert(index.toJson()));
     notifyListeners();
   }
 
