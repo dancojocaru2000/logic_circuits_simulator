@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:logic_circuits_simulator/models/project.dart';
 import 'package:logic_circuits_simulator/state/project.dart';
+import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
 import 'package:logic_circuits_simulator/utils/provider_hook.dart';
 
 class EditComponentPage extends HookWidget {
@@ -98,7 +99,9 @@ class EditComponentPage extends HookWidget {
             ),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, i) => ListTile(title: Text(ce.inputs[i]),),
+                (context, i) => ListTile(
+                  title: Text(ce.inputs[i]),
+                ),
                 childCount: ce.inputs.length,
               ),
             ),
@@ -113,7 +116,9 @@ class EditComponentPage extends HookWidget {
             ),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, i) => ListTile(title: Text(ce.outputs[i]),),
+                (context, i) => ListTile(
+                  title: Text(ce.outputs[i]),
+                ),
                 childCount: ce.outputs.length,
               ),
             ),
@@ -156,6 +161,76 @@ class EditComponentPage extends HookWidget {
   }
 }
 
+class TruthTableHeaderText extends StatelessWidget {
+  final String text;
+  final BoxBorder? border;
+
+  const TruthTableHeaderText(this.text, {super.key, this.border});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: border,
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+          fontWeight: FontWeight.bold,
+          fontSize: 24,
+        ),
+      ),
+    );
+  }
+}
+
+class TruthTableTrue extends StatelessWidget {
+  final BoxBorder? border;
+
+  const TruthTableTrue({super.key, this.border});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: border,
+      ),
+      child: Text(
+        'T',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+          color: Colors.green,
+          fontSize: 20,
+        ),
+      ),
+    );
+  }
+}
+
+class TruthTableFalse extends StatelessWidget {
+  final BoxBorder? border;
+
+  const TruthTableFalse({super.key, this.border});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: border,
+      ),
+      child: Text(
+        'F',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+          color: Colors.red,
+          fontSize: 20,
+        ),
+      ),
+    );
+  }
+}
+
 class TruthTableEditor extends StatelessWidget {
   final List<String> inputs;
   final List<String> outputs;
@@ -167,20 +242,44 @@ class TruthTableEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     return Table(
       defaultColumnWidth: const IntrinsicColumnWidth(),
+      border: TableBorder.symmetric(outside: const BorderSide(width: 2)),
       children: List.generate(
         truthTable.length + 1, 
         (index) {
           if (index == 0) {
             return TableRow(
-              children: inputs.map((e) => Text(e)).followedBy(outputs.map((e) => Text(e))).toList(),
+              children: inputs
+                .indexedMap<Widget>(
+                  (index, e) => TruthTableHeaderText(
+                    e,
+                    border: Border(
+                      bottom: const BorderSide(width: 2),
+                      right: index == inputs.length - 1 ? const BorderSide(width: 2) : BorderSide.none,
+                    ),
+                  )
+                )
+                .followedBy(
+                  outputs
+                  .map((e) => TruthTableHeaderText(e, border: const Border(bottom: BorderSide(width: 2)),))
+                )
+                .toList(),
             );
           }
           final inputBinary = (index - 1).toRadixString(2).padLeft(inputs.length, '0');
           final outputBinary = truthTable[index - 1];
 
+          Widget runeToWidget(int rune, {BoxBorder? border}) {
+            return int.parse(String.fromCharCode(rune)) != 0 ? TruthTableTrue(border: border) : TruthTableFalse(border: border);
+          }
+
           return TableRow(
-            children: inputBinary.runes.map((r) => Text(String.fromCharCodes([r])))
-              .followedBy(outputBinary.runes.map((r) => Text(String.fromCharCodes([r]))))
+            children: inputBinary.runes.indexedMap(
+                (index, r) => runeToWidget(
+                  r, 
+                  border: index == inputBinary.runes.length - 1 ? const Border(right: BorderSide(width: 2)) : null,
+                )
+              )
+              .followedBy(outputBinary.runes.map((r) => runeToWidget(r)))
               .toList(),
           );
         },
