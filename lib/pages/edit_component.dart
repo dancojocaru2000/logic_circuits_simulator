@@ -33,35 +33,40 @@ class EditComponentPage extends HookWidget {
     return WillPopScope(
       onWillPop: () async {
         if (!dirty && !newComponent) {
-          return true;
+          Navigator.of(context).pop(true);
         } else if (!dirty && anySave.value) {
-          return true;
-        }
-        final dialogResult = await showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(true);
-                  },
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all(Colors.red),
+          Navigator.of(context).pop(true);
+        } else {
+          final dialogResult = await showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
                   ),
-                  child: const Text('Discard'),
-                ),
-              ],
-              title: Text('Cancel ${newComponent ? 'Creation' : 'Editing'}'),
-              content: Text(newComponent ? 'A new component will not be created.' : 'Are you sure you want to discard the changes?'),
-            );
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(true);
+                    },
+                    style: ButtonStyle(
+                      backgroundColor: MaterialStateProperty.all(Colors.red),
+                    ),
+                    child: const Text('Discard'),
+                  ),
+                ],
+                title: Text('Cancel ${newComponent ? 'Creation' : 'Editing'}'),
+                content: Text(newComponent ? 'A new component will not be created.' : 'Are you sure you want to discard the changes?'),
+              );
+            }
+          );
+          if (dialogResult == true) {
+            // ignore: use_build_context_synchronously
+            Navigator.of(context).pop(!newComponent);
           }
-        );
-        return dialogResult == true;
+        }
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
