@@ -27,6 +27,16 @@ class NewProjectDialog extends HookWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Close',
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ),
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
