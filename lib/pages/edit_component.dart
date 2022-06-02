@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:logic_circuits_simulator/models/project.dart';
@@ -18,18 +19,50 @@ class EditComponentPage extends HookWidget {
     final anySave = useState(false);
     final projectState = useProvider<ProjectState>();
     final ce = projectState.index.components.where((c) => c.componentId == component.componentId).first;
+    final truthTable = useState(ce.truthTable?.toList());
+    final inputs = useState(ce.inputs.toList());
+    final outputs = useState(ce.outputs.toList());
     final componentNameEditingController = useTextEditingController(text: ce.componentName);
     useValueListenable(componentNameEditingController);
-    final dirty = useMemoized(() {
-      if (componentNameEditingController.text.isEmpty) {
-        // Don't allow saving empty name
+    final dirty = useMemoized(
+      () {
+        if (componentNameEditingController.text.isEmpty) {
+          // Don't allow saving empty name
+          return false;
+        }
+        if (inputs.value.isEmpty) {
+          // Don't allow saving empty inputs
+          return false;
+        }
+        if (outputs.value.isEmpty) {
+          // Don't allow saving empty outputs
+          return false;
+        }
+        if (componentNameEditingController.text != ce.componentName) {
+          return true;
+        }
+        if (!const ListEquality().equals(inputs.value, ce.inputs)) {
+          return true;
+        }
+        if (!const ListEquality().equals(outputs.value, ce.outputs)) {
+          return true;
+        }
+        if (!const ListEquality().equals(truthTable.value, ce.truthTable)) {
+          return true;
+        }
         return false;
-      }
-      if (componentNameEditingController.text != ce.componentName) {
-        return true;
-      }
-      return false;
-    }, [componentNameEditingController.text, ce.componentName]);
+      },
+      [
+        componentNameEditingController.text,
+        ce.componentName,
+        inputs.value,
+        ce.inputs,
+        outputs.value,
+        ce.outputs,
+        truthTable.value,
+        ce.truthTable,
+      ],
+    );
 
     return WillPopScope(
       onWillPop: () async {
@@ -122,7 +155,7 @@ class EditComponentPage extends HookWidget {
                 childCount: ce.outputs.length,
               ),
             ),
-            if (ce.truthTable != null) ...[
+            if (truthTable.value != null) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
@@ -136,9 +169,12 @@ class EditComponentPage extends HookWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: TruthTableEditor(
-                    truthTable: ce.truthTable!,
-                    inputs: ce.inputs,
-                    outputs: ce.outputs,
+                    truthTable: truthTable.value!,
+                    inputs: inputs.value,
+                    outputs: outputs.value,
+                    onUpdateTable: (idx, newValue) {
+                      truthTable.value = truthTable.value?.toList()?..replaceRange(idx, idx+1, [newValue]);
+                    },
                   ),
                 ),
               )
@@ -150,6 +186,11 @@ class EditComponentPage extends HookWidget {
             if (componentNameEditingController.text.isNotEmpty) {
               await projectState.editComponent(component.copyWith(componentName: componentNameEditingController.text));
             }
+            await projectState.editComponent(ce.copyWith(
+              inputs: inputs.value,
+              outputs: outputs.value,
+              truthTable: truthTable.value,
+            ));
             anySave.value = true;
             // TODO: Implement saving
           },
@@ -187,8 +228,9 @@ class TruthTableHeaderText extends StatelessWidget {
 
 class TruthTableTrue extends StatelessWidget {
   final BoxBorder? border;
+  final void Function()? onTap;
 
-  const TruthTableTrue({super.key, this.border});
+  const TruthTableTrue({super.key, this.border, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -196,12 +238,15 @@ class TruthTableTrue extends StatelessWidget {
       decoration: BoxDecoration(
         border: border,
       ),
-      child: Text(
-        'T',
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-          color: Colors.green,
-          fontSize: 20,
+      child: InkWell(
+        onTap: onTap,
+        child: Text(
+          'T',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+            color: Colors.green,
+            fontSize: 20,
+          ),
         ),
       ),
     );
@@ -210,8 +255,9 @@ class TruthTableTrue extends StatelessWidget {
 
 class TruthTableFalse extends StatelessWidget {
   final BoxBorder? border;
+  final void Function()? onTap;
 
-  const TruthTableFalse({super.key, this.border});
+  const TruthTableFalse({super.key, this.border, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -219,12 +265,15 @@ class TruthTableFalse extends StatelessWidget {
       decoration: BoxDecoration(
         border: border,
       ),
-      child: Text(
-        'F',
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-          color: Colors.red,
-          fontSize: 20,
+      child: InkWell(
+        onTap: onTap,
+        child: Text(
+          'F',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+            color: Colors.red,
+            fontSize: 20,
+          ),
         ),
       ),
     );
@@ -236,7 +285,9 @@ class TruthTableEditor extends StatelessWidget {
   final List<String> outputs;
   final List<String> truthTable;
 
-  const TruthTableEditor({Key? key, required this.inputs, required this.outputs, required this.truthTable}) : super(key: key);
+  final void Function(int, String) onUpdateTable;
+
+  const TruthTableEditor({Key? key, required this.inputs, required this.outputs, required this.truthTable, required this.onUpdateTable}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -268,18 +319,33 @@ class TruthTableEditor extends StatelessWidget {
           final inputBinary = (index - 1).toRadixString(2).padLeft(inputs.length, '0');
           final outputBinary = truthTable[index - 1];
 
-          Widget runeToWidget(int rune, {BoxBorder? border}) {
-            return int.parse(String.fromCharCode(rune)) != 0 ? TruthTableTrue(border: border) : TruthTableFalse(border: border);
+          Widget runeToWidget({required int rune, void Function()? onTap, BoxBorder? border}) {
+            return int.parse(String.fromCharCode(rune)) != 0 
+              ? TruthTableTrue(
+                border: border,
+                onTap: onTap,
+              ) 
+              : TruthTableFalse(
+                border: border,
+                onTap: onTap,
+              );
           }
 
           return TableRow(
             children: inputBinary.runes.indexedMap(
-                (index, r) => runeToWidget(
-                  r, 
-                  border: index == inputBinary.runes.length - 1 ? const Border(right: BorderSide(width: 2)) : null,
+                (i, r) => runeToWidget(
+                  rune: r, 
+                  border: i == inputBinary.runes.length - 1 ? const Border(right: BorderSide(width: 2)) : null,
                 )
               )
-              .followedBy(outputBinary.runes.map((r) => runeToWidget(r)))
+              .followedBy(outputBinary.runes.indexedMap(
+                (i, r) => runeToWidget(
+                  rune: r,
+                  onTap: () {
+                    onUpdateTable(index - 1, outputBinary.replaceRange(i, i+1, (outputBinary[i] == "1") ? "0" : "1"));
+                  },
+                ),
+              ))
               .toList(),
           );
         },
