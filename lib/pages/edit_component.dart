@@ -124,35 +124,151 @@ class EditComponentPage extends HookWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  'Inputs',
-                  style: Theme.of(context).textTheme.headline5,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Inputs',
+                        style: Theme.of(context).textTheme.headline5,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Add new input',
+                      onPressed: () {
+                        
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, i) => ListTile(
-                  title: Text(ce.inputs[i]),
+                (context, idx) => ListTile(
+                  leading: inputs.value.length > 1 ? IconButton(
+                    icon: const Icon(Icons.remove_circle),
+                    color: Colors.red,
+                    tooltip: 'Remove input ${inputs.value[idx]}',
+                    onPressed: () async {
+                      final shouldRemove = await showDialog<bool>(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: Text('Remove Input ${inputs.value[idx]}?'),
+                            content: const Text('Are you sure you want to remove the input?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop(true);
+                                },
+                                style: ButtonStyle(
+                                  backgroundColor: MaterialStateProperty.all(Colors.red),
+                                ),
+                                child: const Text('Remove'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                      if (shouldRemove == true) {
+                        if (truthTable.value != null) {
+                          final tt = truthTable.value!.toList();
+                          final shiftIndex = inputs.value.length - 1 - idx;
+                          final shifted = 1 << shiftIndex;
+                          final indecesToRemove = [];
+                          for (var i = tt.length - 1; i >= 0; i--) {
+                            if (i & shifted == 0) {
+                              indecesToRemove.add(i);
+                            }
+                          } 
+                          for (final i in indecesToRemove) {
+                            tt.removeAt(i);
+                          }
+                          truthTable.value = tt;
+                        }
+                        inputs.value = inputs.value.toList()..removeRange(idx, idx+1);
+                      }
+                    },
+                  ) : null,
+                  title: Text(inputs.value[idx]),
                 ),
-                childCount: ce.inputs.length,
+                childCount: inputs.value.length,
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  'Outputs',
-                  style: Theme.of(context).textTheme.headline5,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Outputs',
+                        style: Theme.of(context).textTheme.headline5,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Add new output',
+                      onPressed: () {
+                        
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, i) => ListTile(
-                  title: Text(ce.outputs[i]),
+                (context, idx) => ListTile(
+                  leading: outputs.value.length > 1 ? IconButton(
+                    icon: const Icon(Icons.remove_circle),
+                    color: Colors.red,
+                    tooltip: 'Remove output ${outputs.value[idx]}',
+                    onPressed: () async {
+                      final shouldRemove = await showDialog<bool>(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: Text('Remove Output ${outputs.value[idx]}?'),
+                            content: const Text('Are you sure you want to remove the output?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop(true);
+                                },
+                                style: ButtonStyle(
+                                  backgroundColor: MaterialStateProperty.all(Colors.red),
+                                ),
+                                child: const Text('Remove'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                      if (shouldRemove == true) {
+                        if (truthTable.value != null) {
+                          for (var i = 0; i < truthTable.value!.length; i++) {
+                            truthTable.value!.replaceRange(i, i+1, [truthTable.value![i].replaceRange(idx, idx+1, "")]);
+                          }
+                        }
+                        outputs.value = outputs.value.toList()..removeRange(idx, idx+1);
+                      }
+                    },
+                  ) : null,
+                  title: Text(outputs.value[idx]),
                 ),
-                childCount: ce.outputs.length,
+                childCount: outputs.value.length,
               ),
             ),
             if (truthTable.value != null) ...[
