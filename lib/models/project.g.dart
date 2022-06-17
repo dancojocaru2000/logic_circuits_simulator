@@ -30,6 +30,7 @@ _$_ComponentEntry _$$_ComponentEntryFromJson(Map<String, dynamic> json) =>
       truthTable: (json['truthTable'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
+      logicExpression: json['logicExpression'] as String?,
     );
 
 Map<String, dynamic> _$$_ComponentEntryToJson(_$_ComponentEntry instance) {
@@ -48,5 +49,6 @@ Map<String, dynamic> _$$_ComponentEntryToJson(_$_ComponentEntry instance) {
   val['inputs'] = instance.inputs;
   val['outputs'] = instance.outputs;
   writeNotNull('truthTable', instance.truthTable);
+  writeNotNull('logicExpression', instance.logicExpression);
   return val;
 }

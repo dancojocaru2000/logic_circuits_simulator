@@ -23,6 +23,8 @@ class ComponentEntry with _$ComponentEntry {
     required List<String> outputs,
     @JsonKey(includeIfNull: false)
     List<String>? truthTable,
+    @JsonKey(includeIfNull: false)
+    String? logicExpression,
   }) = _ComponentEntry;
 
   factory ComponentEntry.fromJson(Map<String, Object?> json) => _$ComponentEntryFromJson(json);

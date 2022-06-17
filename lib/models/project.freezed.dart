@@ -166,6 +166,8 @@ mixin _$ComponentEntry {
   List<String> get outputs => throw _privateConstructorUsedError;
   @JsonKey(includeIfNull: false)
   List<String>? get truthTable => throw _privateConstructorUsedError;
+  @JsonKey(includeIfNull: false)
+  String? get logicExpression => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -184,7 +186,8 @@ abstract class $ComponentEntryCopyWith<$Res> {
       @JsonKey(includeIfNull: false) String? componentDescription,
       List<String> inputs,
       List<String> outputs,
-      @JsonKey(includeIfNull: false) List<String>? truthTable});
+      @JsonKey(includeIfNull: false) List<String>? truthTable,
+      @JsonKey(includeIfNull: false) String? logicExpression});
 }
 
 /// @nodoc
@@ -204,6 +207,7 @@ class _$ComponentEntryCopyWithImpl<$Res>
     Object? inputs = freezed,
     Object? outputs = freezed,
     Object? truthTable = freezed,
+    Object? logicExpression = freezed,
   }) {
     return _then(_value.copyWith(
       componentId: componentId == freezed
@@ -230,6 +234,10 @@ class _$ComponentEntryCopyWithImpl<$Res>
           ? _value.truthTable
           : truthTable // ignore: cast_nullable_to_non_nullable
               as List<String>?,
+      logicExpression: logicExpression == freezed
+          ? _value.logicExpression
+          : logicExpression // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -247,7 +255,8 @@ abstract class _$$_ComponentEntryCopyWith<$Res>
       @JsonKey(includeIfNull: false) String? componentDescription,
       List<String> inputs,
       List<String> outputs,
-      @JsonKey(includeIfNull: false) List<String>? truthTable});
+      @JsonKey(includeIfNull: false) List<String>? truthTable,
+      @JsonKey(includeIfNull: false) String? logicExpression});
 }
 
 /// @nodoc
@@ -269,6 +278,7 @@ class __$$_ComponentEntryCopyWithImpl<$Res>
     Object? inputs = freezed,
     Object? outputs = freezed,
     Object? truthTable = freezed,
+    Object? logicExpression = freezed,
   }) {
     return _then(_$_ComponentEntry(
       componentId: componentId == freezed
@@ -295,6 +305,10 @@ class __$$_ComponentEntryCopyWithImpl<$Res>
           ? _value._truthTable
           : truthTable // ignore: cast_nullable_to_non_nullable
               as List<String>?,
+      logicExpression: logicExpression == freezed
+          ? _value.logicExpression
+          : logicExpression // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -308,7 +322,8 @@ class _$_ComponentEntry implements _ComponentEntry {
       @JsonKey(includeIfNull: false) this.componentDescription,
       required final List<String> inputs,
       required final List<String> outputs,
-      @JsonKey(includeIfNull: false) final List<String>? truthTable})
+      @JsonKey(includeIfNull: false) final List<String>? truthTable,
+      @JsonKey(includeIfNull: false) this.logicExpression})
       : _inputs = inputs,
         _outputs = outputs,
         _truthTable = truthTable;
@@ -348,8 +363,12 @@ class _$_ComponentEntry implements _ComponentEntry {
   }
 
   @override
+  @JsonKey(includeIfNull: false)
+  final String? logicExpression;
+
+  @override
   String toString() {
-    return 'ComponentEntry(componentId: $componentId, componentName: $componentName, componentDescription: $componentDescription, inputs: $inputs, outputs: $outputs, truthTable: $truthTable)';
+    return 'ComponentEntry(componentId: $componentId, componentName: $componentName, componentDescription: $componentDescription, inputs: $inputs, outputs: $outputs, truthTable: $truthTable, logicExpression: $logicExpression)';
   }
 
   @override
@@ -366,7 +385,9 @@ class _$_ComponentEntry implements _ComponentEntry {
             const DeepCollectionEquality().equals(other._inputs, _inputs) &&
             const DeepCollectionEquality().equals(other._outputs, _outputs) &&
             const DeepCollectionEquality()
-                .equals(other._truthTable, _truthTable));
+                .equals(other._truthTable, _truthTable) &&
+            const DeepCollectionEquality()
+                .equals(other.logicExpression, logicExpression));
   }
 
   @JsonKey(ignore: true)
@@ -378,7 +399,8 @@ class _$_ComponentEntry implements _ComponentEntry {
       const DeepCollectionEquality().hash(componentDescription),
       const DeepCollectionEquality().hash(_inputs),
       const DeepCollectionEquality().hash(_outputs),
-      const DeepCollectionEquality().hash(_truthTable));
+      const DeepCollectionEquality().hash(_truthTable),
+      const DeepCollectionEquality().hash(logicExpression));
 
   @JsonKey(ignore: true)
   @override
@@ -398,7 +420,8 @@ abstract class _ComponentEntry implements ComponentEntry {
           @JsonKey(includeIfNull: false) final String? componentDescription,
           required final List<String> inputs,
           required final List<String> outputs,
-          @JsonKey(includeIfNull: false) final List<String>? truthTable}) =
+          @JsonKey(includeIfNull: false) final List<String>? truthTable,
+          @JsonKey(includeIfNull: false) final String? logicExpression}) =
       _$_ComponentEntry;
 
   factory _ComponentEntry.fromJson(Map<String, dynamic> json) =
@@ -418,6 +441,9 @@ abstract class _ComponentEntry implements ComponentEntry {
   @override
   @JsonKey(includeIfNull: false)
   List<String>? get truthTable => throw _privateConstructorUsedError;
+  @override
+  @JsonKey(includeIfNull: false)
+  String? get logicExpression => throw _privateConstructorUsedError;
   @override
   @JsonKey(ignore: true)
   _$$_ComponentEntryCopyWith<_$_ComponentEntry> get copyWith =>

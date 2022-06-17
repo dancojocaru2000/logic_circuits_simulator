@@ -21,6 +21,7 @@ class EditComponentPage extends HookWidget {
     final projectState = useProvider<ProjectState>();
     ComponentEntry ce() => projectState.index.components.where((c) => c.componentId == component.componentId).first;
     final truthTable = useState(ce().truthTable?.toList());
+    final logicExpression = useState(ce().logicExpression);
     final inputs = useState(ce().inputs.toList());
     final outputs = useState(ce().outputs.toList());
     final componentNameEditingController = useTextEditingController(text: ce().componentName);
@@ -39,6 +40,11 @@ class EditComponentPage extends HookWidget {
           // Don't allow saving empty outputs
           return false;
         }
+        if (truthTable.value == null && logicExpression.value == null) {
+          // Don't allow saving components without functionality
+          return false;
+        }
+
         if (componentNameEditingController.text != ce().componentName) {
           return true;
         }
@@ -49,6 +55,9 @@ class EditComponentPage extends HookWidget {
           return true;
         }
         if (!const ListEquality().equals(truthTable.value, ce().truthTable)) {
+          return true;
+        }
+        if (logicExpression.value != ce().logicExpression) {
           return true;
         }
         return false;
