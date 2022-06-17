@@ -20,8 +20,9 @@ class NewProjectDialog extends HookWidget {
       };
     }, [newDialogNameController.text]); 
 
-    return Center(
-      child: Card(
+    return Dialog(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
         child: IntrinsicWidth(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
