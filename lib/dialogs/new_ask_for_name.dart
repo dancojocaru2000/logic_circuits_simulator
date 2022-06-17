@@ -40,6 +40,7 @@ class NewAskForNameDialog extends HookWidget {
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 300),
                   child: TextField(
+                    autofocus: true,
                     controller: tec,
                     decoration: InputDecoration(
                       border: const OutlineInputBorder(),
