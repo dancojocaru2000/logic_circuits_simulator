@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -305,6 +307,48 @@ class EditComponentPage extends HookWidget {
                 childCount: outputs.value.length,
               ),
             ),
+            if (truthTable.value == null && logicExpression.value == null) ...[
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    const Divider(),
+                    Text(
+                      'Choose component kind',
+                      style: Theme.of(context).textTheme.headline4,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: OutlinedButton(
+                        onPressed: () {
+                          logicExpression.value = '';
+                        }, 
+                        child: const Text('Logic Expression'),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: OutlinedButton(
+                        onPressed: () {
+                          final row = "0" * outputs.value.length;
+                          truthTable.value = List.generate(pow(2, inputs.value.length) as int, (_) => row);
+                        }, 
+                        child: const Text('Truth Table'),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: OutlinedButton(
+                        onPressed: null, 
+                        child: const Text('Visual Designer'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (logicExpression.value != null) ...[
+
+            ],
             if (truthTable.value != null) ...[
               SliverToBoxAdapter(
                 child: Padding(
@@ -328,8 +372,6 @@ class EditComponentPage extends HookWidget {
                   ),
                 ),
               )
-            ] else ...[
-              
             ],
           ],
         ),
