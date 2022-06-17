@@ -34,7 +34,12 @@ class MyApp extends StatelessWidget {
             title: 'Logic Circuits Simulator',
             theme: ThemeData(
               useMaterial3: true,
-              primarySwatch: Colors.amber,
+              primarySwatch: Colors.orange,
+            ),
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              primarySwatch: Colors.orange,
+              brightness: Brightness.dark,
             ),
             routes: {
               ProjectsPage.routeName:(context) {
