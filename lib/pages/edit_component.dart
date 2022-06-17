@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:logic_circuits_simulator/dialogs/new_ask_for_name.dart';
 import 'package:logic_circuits_simulator/models/project.dart';
 import 'package:logic_circuits_simulator/state/project.dart';
 import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
@@ -18,11 +19,11 @@ class EditComponentPage extends HookWidget {
   Widget build(BuildContext context) {
     final anySave = useState(false);
     final projectState = useProvider<ProjectState>();
-    final ce = projectState.index.components.where((c) => c.componentId == component.componentId).first;
-    final truthTable = useState(ce.truthTable?.toList());
-    final inputs = useState(ce.inputs.toList());
-    final outputs = useState(ce.outputs.toList());
-    final componentNameEditingController = useTextEditingController(text: ce.componentName);
+    ComponentEntry ce() => projectState.index.components.where((c) => c.componentId == component.componentId).first;
+    final truthTable = useState(ce().truthTable?.toList());
+    final inputs = useState(ce().inputs.toList());
+    final outputs = useState(ce().outputs.toList());
+    final componentNameEditingController = useTextEditingController(text: ce().componentName);
     useValueListenable(componentNameEditingController);
     final dirty = useMemoized(
       () {
@@ -38,29 +39,29 @@ class EditComponentPage extends HookWidget {
           // Don't allow saving empty outputs
           return false;
         }
-        if (componentNameEditingController.text != ce.componentName) {
+        if (componentNameEditingController.text != ce().componentName) {
           return true;
         }
-        if (!const ListEquality().equals(inputs.value, ce.inputs)) {
+        if (!const ListEquality().equals(inputs.value, ce().inputs)) {
           return true;
         }
-        if (!const ListEquality().equals(outputs.value, ce.outputs)) {
+        if (!const ListEquality().equals(outputs.value, ce().outputs)) {
           return true;
         }
-        if (!const ListEquality().equals(truthTable.value, ce.truthTable)) {
+        if (!const ListEquality().equals(truthTable.value, ce().truthTable)) {
           return true;
         }
         return false;
       },
       [
         componentNameEditingController.text,
-        ce.componentName,
+        ce().componentName,
         inputs.value,
-        ce.inputs,
+        ce().inputs,
         outputs.value,
-        ce.outputs,
+        ce().outputs,
         truthTable.value,
-        ce.truthTable,
+        ce().truthTable,
       ],
     );
 
@@ -136,8 +137,20 @@ class EditComponentPage extends HookWidget {
                     IconButton(
                       icon: const Icon(Icons.add),
                       tooltip: 'Add new input',
-                      onPressed: () {
-                        
+                      onPressed: () async {
+                        final inputName = await showDialog<String>(
+                          context: context,
+                          builder: (context) {
+                            return const NewAskForNameDialog(
+                              title: 'New Input',
+                              labelText: 'Input name',
+                            );
+                          },
+                        );
+                        if (inputName != null) {
+                          truthTable.value = truthTable.value?.expand((element) => [element, element]).toList();
+                          inputs.value = inputs.value.toList()..add(inputName);
+                        }
                       },
                     ),
                   ],
@@ -216,8 +229,20 @@ class EditComponentPage extends HookWidget {
                     IconButton(
                       icon: const Icon(Icons.add),
                       tooltip: 'Add new output',
-                      onPressed: () {
-                        
+                      onPressed: () async {
+                        final outputName = await showDialog<String>(
+                          context: context,
+                          builder: (context) {
+                            return const NewAskForNameDialog(
+                              title: 'New Output',
+                              labelText: 'Output name',
+                            );
+                          },
+                        );
+                        if (outputName != null) {
+                          truthTable.value = truthTable.value?.map((e) => '${e}0').toList();
+                          outputs.value = outputs.value.toList()..add(outputName);
+                        }
                       },
                     ),
                   ],
@@ -294,15 +319,17 @@ class EditComponentPage extends HookWidget {
                   ),
                 ),
               )
+            ] else ...[
+              
             ],
           ],
         ),
         floatingActionButton: !dirty ? null : FloatingActionButton(
           onPressed: () async {
             if (componentNameEditingController.text.isNotEmpty) {
-              await projectState.editComponent(component.copyWith(componentName: componentNameEditingController.text));
+              await projectState.editComponent(ce().copyWith(componentName: componentNameEditingController.text));
             }
-            await projectState.editComponent(ce.copyWith(
+            await projectState.editComponent(ce().copyWith(
               inputs: inputs.value,
               outputs: outputs.value,
               truthTable: truthTable.value,
