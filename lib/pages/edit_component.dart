@@ -173,7 +173,8 @@ class EditComponentPage extends HookWidget {
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, idx) => ListTile(
-                  leading: inputs.value.length > 1 ? IconButton(
+                  title: Text(inputs.value[idx]),
+                  trailing: inputs.value.length > 1 ? IconButton(
                     icon: const Icon(Icons.remove_circle),
                     color: Colors.red,
                     tooltip: 'Remove input ${inputs.value[idx]}',
@@ -223,7 +224,6 @@ class EditComponentPage extends HookWidget {
                       }
                     },
                   ) : null,
-                  title: Text(inputs.value[idx]),
                 ),
                 childCount: inputs.value.length,
               ),
@@ -266,7 +266,8 @@ class EditComponentPage extends HookWidget {
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, idx) => ListTile(
-                  leading: outputs.value.length > 1 ? IconButton(
+                  title: Text(outputs.value[idx]),
+                  trailing: outputs.value.length > 1 ? IconButton(
                     icon: const Icon(Icons.remove_circle),
                     color: Colors.red,
                     tooltip: 'Remove output ${outputs.value[idx]}',
@@ -306,7 +307,6 @@ class EditComponentPage extends HookWidget {
                       }
                     },
                   ) : null,
-                  title: Text(outputs.value[idx]),
                 ),
                 childCount: outputs.value.length,
               ),
