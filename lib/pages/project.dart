@@ -28,6 +28,7 @@ class ProjectPage extends StatelessWidget {
                 Navigator.of(context).pop();
               },
               style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all(Colors.white),
                 backgroundColor: MaterialStateProperty.all(Colors.red),
               ),
               child: const Text('Delete'),
