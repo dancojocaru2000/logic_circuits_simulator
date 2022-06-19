@@ -27,6 +27,8 @@ class ComponentEntry with _$ComponentEntry {
     List<String>? logicExpression,
     @JsonKey(defaultValue: false)
     required bool visualDesigned,
+    @JsonKey(defaultValue: [])
+    required List<String> dependencies,
   }) = _ComponentEntry;
 
   factory ComponentEntry.fromJson(Map<String, Object?> json) => _$ComponentEntryFromJson(json);
