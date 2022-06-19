@@ -167,7 +167,9 @@ mixin _$ComponentEntry {
   @JsonKey(includeIfNull: false)
   List<String>? get truthTable => throw _privateConstructorUsedError;
   @JsonKey(includeIfNull: false)
-  String? get logicExpression => throw _privateConstructorUsedError;
+  List<String>? get logicExpression => throw _privateConstructorUsedError;
+  @JsonKey(defaultValue: false)
+  bool get visualDesigned => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -187,7 +189,8 @@ abstract class $ComponentEntryCopyWith<$Res> {
       List<String> inputs,
       List<String> outputs,
       @JsonKey(includeIfNull: false) List<String>? truthTable,
-      @JsonKey(includeIfNull: false) String? logicExpression});
+      @JsonKey(includeIfNull: false) List<String>? logicExpression,
+      @JsonKey(defaultValue: false) bool visualDesigned});
 }
 
 /// @nodoc
@@ -208,6 +211,7 @@ class _$ComponentEntryCopyWithImpl<$Res>
     Object? outputs = freezed,
     Object? truthTable = freezed,
     Object? logicExpression = freezed,
+    Object? visualDesigned = freezed,
   }) {
     return _then(_value.copyWith(
       componentId: componentId == freezed
@@ -237,7 +241,11 @@ class _$ComponentEntryCopyWithImpl<$Res>
       logicExpression: logicExpression == freezed
           ? _value.logicExpression
           : logicExpression // ignore: cast_nullable_to_non_nullable
-              as String?,
+              as List<String>?,
+      visualDesigned: visualDesigned == freezed
+          ? _value.visualDesigned
+          : visualDesigned // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -256,7 +264,8 @@ abstract class _$$_ComponentEntryCopyWith<$Res>
       List<String> inputs,
       List<String> outputs,
       @JsonKey(includeIfNull: false) List<String>? truthTable,
-      @JsonKey(includeIfNull: false) String? logicExpression});
+      @JsonKey(includeIfNull: false) List<String>? logicExpression,
+      @JsonKey(defaultValue: false) bool visualDesigned});
 }
 
 /// @nodoc
@@ -279,6 +288,7 @@ class __$$_ComponentEntryCopyWithImpl<$Res>
     Object? outputs = freezed,
     Object? truthTable = freezed,
     Object? logicExpression = freezed,
+    Object? visualDesigned = freezed,
   }) {
     return _then(_$_ComponentEntry(
       componentId: componentId == freezed
@@ -306,9 +316,13 @@ class __$$_ComponentEntryCopyWithImpl<$Res>
           : truthTable // ignore: cast_nullable_to_non_nullable
               as List<String>?,
       logicExpression: logicExpression == freezed
-          ? _value.logicExpression
+          ? _value._logicExpression
           : logicExpression // ignore: cast_nullable_to_non_nullable
-              as String?,
+              as List<String>?,
+      visualDesigned: visualDesigned == freezed
+          ? _value.visualDesigned
+          : visualDesigned // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -323,10 +337,12 @@ class _$_ComponentEntry implements _ComponentEntry {
       required final List<String> inputs,
       required final List<String> outputs,
       @JsonKey(includeIfNull: false) final List<String>? truthTable,
-      @JsonKey(includeIfNull: false) this.logicExpression})
+      @JsonKey(includeIfNull: false) final List<String>? logicExpression,
+      @JsonKey(defaultValue: false) required this.visualDesigned})
       : _inputs = inputs,
         _outputs = outputs,
-        _truthTable = truthTable;
+        _truthTable = truthTable,
+        _logicExpression = logicExpression;
 
   factory _$_ComponentEntry.fromJson(Map<String, dynamic> json) =>
       _$$_ComponentEntryFromJson(json);
@@ -362,13 +378,23 @@ class _$_ComponentEntry implements _ComponentEntry {
     return EqualUnmodifiableListView(value);
   }
 
+  final List<String>? _logicExpression;
   @override
   @JsonKey(includeIfNull: false)
-  final String? logicExpression;
+  List<String>? get logicExpression {
+    final value = _logicExpression;
+    if (value == null) return null;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(value);
+  }
+
+  @override
+  @JsonKey(defaultValue: false)
+  final bool visualDesigned;
 
   @override
   String toString() {
-    return 'ComponentEntry(componentId: $componentId, componentName: $componentName, componentDescription: $componentDescription, inputs: $inputs, outputs: $outputs, truthTable: $truthTable, logicExpression: $logicExpression)';
+    return 'ComponentEntry(componentId: $componentId, componentName: $componentName, componentDescription: $componentDescription, inputs: $inputs, outputs: $outputs, truthTable: $truthTable, logicExpression: $logicExpression, visualDesigned: $visualDesigned)';
   }
 
   @override
@@ -387,7 +413,9 @@ class _$_ComponentEntry implements _ComponentEntry {
             const DeepCollectionEquality()
                 .equals(other._truthTable, _truthTable) &&
             const DeepCollectionEquality()
-                .equals(other.logicExpression, logicExpression));
+                .equals(other._logicExpression, _logicExpression) &&
+            const DeepCollectionEquality()
+                .equals(other.visualDesigned, visualDesigned));
   }
 
   @JsonKey(ignore: true)
@@ -400,7 +428,8 @@ class _$_ComponentEntry implements _ComponentEntry {
       const DeepCollectionEquality().hash(_inputs),
       const DeepCollectionEquality().hash(_outputs),
       const DeepCollectionEquality().hash(_truthTable),
-      const DeepCollectionEquality().hash(logicExpression));
+      const DeepCollectionEquality().hash(_logicExpression),
+      const DeepCollectionEquality().hash(visualDesigned));
 
   @JsonKey(ignore: true)
   @override
@@ -421,7 +450,8 @@ abstract class _ComponentEntry implements ComponentEntry {
           required final List<String> inputs,
           required final List<String> outputs,
           @JsonKey(includeIfNull: false) final List<String>? truthTable,
-          @JsonKey(includeIfNull: false) final String? logicExpression}) =
+          @JsonKey(includeIfNull: false) final List<String>? logicExpression,
+          @JsonKey(defaultValue: false) required final bool visualDesigned}) =
       _$_ComponentEntry;
 
   factory _ComponentEntry.fromJson(Map<String, dynamic> json) =
@@ -443,7 +473,10 @@ abstract class _ComponentEntry implements ComponentEntry {
   List<String>? get truthTable => throw _privateConstructorUsedError;
   @override
   @JsonKey(includeIfNull: false)
-  String? get logicExpression => throw _privateConstructorUsedError;
+  List<String>? get logicExpression => throw _privateConstructorUsedError;
+  @override
+  @JsonKey(defaultValue: false)
+  bool get visualDesigned => throw _privateConstructorUsedError;
   @override
   @JsonKey(ignore: true)
   _$$_ComponentEntryCopyWith<_$_ComponentEntry> get copyWith =>

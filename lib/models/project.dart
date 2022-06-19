@@ -24,7 +24,9 @@ class ComponentEntry with _$ComponentEntry {
     @JsonKey(includeIfNull: false)
     List<String>? truthTable,
     @JsonKey(includeIfNull: false)
-    String? logicExpression,
+    List<String>? logicExpression,
+    @JsonKey(defaultValue: false)
+    required bool visualDesigned,
   }) = _ComponentEntry;
 
   factory ComponentEntry.fromJson(Map<String, Object?> json) => _$ComponentEntryFromJson(json);

@@ -3,11 +3,14 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:logic_circuits_simulator/components/logic_expression_field.dart';
 import 'package:logic_circuits_simulator/components/truth_table.dart';
 import 'package:logic_circuits_simulator/dialogs/new_ask_for_name.dart';
 import 'package:logic_circuits_simulator/models/project.dart';
 import 'package:logic_circuits_simulator/state/project.dart';
 import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
+import 'package:logic_circuits_simulator/utils/logic_expressions.dart';
+import 'package:logic_circuits_simulator/utils/logic_operators.dart';
 import 'package:logic_circuits_simulator/utils/provider_hook.dart';
 
 class EditComponentPage extends HookWidget {
@@ -24,13 +27,21 @@ class EditComponentPage extends HookWidget {
     final projectState = useProvider<ProjectState>();
     ComponentEntry ce() => projectState.index.components.where((c) => c.componentId == component.componentId).first;
     final truthTable = useState(ce().truthTable?.toList());
-    final logicExpression = useState(ce().logicExpression);
+    final logicExpressions = useState(ce().logicExpression);
+    final logicExpressionsParsed = useState(
+      logicExpressions.value == null
+        ? null
+        : List<LogicExpression?>.generate(logicExpressions.value!.length, (index) => null),
+    );
+    final visualDesigned = useState(ce().visualDesigned);
     final inputs = useState(ce().inputs.toList());
     final outputs = useState(ce().outputs.toList());
     final componentNameEditingController = useTextEditingController(text: ce().componentName);
     useValueListenable(componentNameEditingController);
     final dirty = useMemoized(
       () {
+        const le = ListEquality();
+
         if (componentNameEditingController.text.isEmpty) {
           // Don't allow saving empty name
           return false;
@@ -43,24 +54,31 @@ class EditComponentPage extends HookWidget {
           // Don't allow saving empty outputs
           return false;
         }
-        if (truthTable.value == null && logicExpression.value == null) {
+        if (truthTable.value == null && logicExpressions.value == null && !visualDesigned.value) {
           // Don't allow saving components without functionality
+          return false;
+        }
+        if (logicExpressionsParsed.value != null && logicExpressionsParsed.value?.contains(null) != false) {
+          // Don't allow saving components with errors in parsing logic expressions
           return false;
         }
 
         if (componentNameEditingController.text != ce().componentName) {
           return true;
         }
-        if (!const ListEquality().equals(inputs.value, ce().inputs)) {
+        if (!le.equals(inputs.value, ce().inputs)) {
           return true;
         }
-        if (!const ListEquality().equals(outputs.value, ce().outputs)) {
+        if (!le.equals(outputs.value, ce().outputs)) {
           return true;
         }
-        if (!const ListEquality().equals(truthTable.value, ce().truthTable)) {
+        if (!le.equals(truthTable.value, ce().truthTable)) {
           return true;
         }
-        if (logicExpression.value != ce().logicExpression) {
+        if (!le.equals(logicExpressions.value, ce().logicExpression)) {
+          return true;
+        }
+        if (visualDesigned.value != ce().visualDesigned) {
           return true;
         }
         return false;
@@ -74,7 +92,29 @@ class EditComponentPage extends HookWidget {
         ce().outputs,
         truthTable.value,
         ce().truthTable,
+        logicExpressions.value,
+        ce().logicExpression,
+        visualDesigned.value,
+        ce().visualDesigned,
+        logicExpressionsParsed.value,
       ],
+    );
+
+    final updateTTFromLE = useMemoized(
+      () {
+        return () {
+          if (logicExpressionsParsed.value?.contains(null) != false) {
+            truthTable.value = null;
+          }
+          else {
+            truthTable.value = logicExpressionsParsed.value!.first!.computeTruthTable(inputs.value).zipWith(
+              logicExpressionsParsed.value!.skip(1).map((le) => le!.computeTruthTable(inputs.value)),
+              (args) => args.join(),
+            ).toList();
+          }
+        };
+      },
+      [logicExpressions.value, truthTable.value]
     );
 
     return WillPopScope(
@@ -137,7 +177,7 @@ class EditComponentPage extends HookWidget {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -161,7 +201,13 @@ class EditComponentPage extends HookWidget {
                           },
                         );
                         if (inputName != null) {
-                          truthTable.value = truthTable.value?.expand((element) => [element, element]).toList();
+                          if (logicExpressions.value != null) {
+                            // They should update themselves
+                            updateTTFromLE();
+                          }
+                          else if (truthTable.value != null) {
+                            truthTable.value = truthTable.value?.expand((element) => [element, element]).toList();
+                          }
                           inputs.value = inputs.value.toList()..add(inputName);
                         }
                       },
@@ -205,7 +251,11 @@ class EditComponentPage extends HookWidget {
                         },
                       );
                       if (shouldRemove == true) {
-                        if (truthTable.value != null) {
+                        if (logicExpressions.value != null) {
+                          // They should update themselves
+                          updateTTFromLE();
+                        }
+                        else if (truthTable.value != null) {
                           final tt = truthTable.value!.toList();
                           final shiftIndex = inputs.value.length - 1 - idx;
                           final shifted = 1 << shiftIndex;
@@ -230,7 +280,7 @@ class EditComponentPage extends HookWidget {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -254,7 +304,14 @@ class EditComponentPage extends HookWidget {
                           },
                         );
                         if (outputName != null) {
-                          truthTable.value = truthTable.value?.map((e) => '${e}0').toList();
+                          if (logicExpressions.value != null) {
+                            logicExpressions.value = logicExpressions.value!.followedBy(['']).toList();
+                            logicExpressionsParsed.value = logicExpressionsParsed.value?.followedBy([LogicExpression.ofZeroOp(FalseLogicOperator())]).toList();
+                            updateTTFromLE();
+                          }
+                          else if (truthTable.value != null) {
+                            truthTable.value = truthTable.value?.map((e) => '${e}0').toList();
+                          }
                           outputs.value = outputs.value.toList()..add(outputName);
                         }
                       },
@@ -298,7 +355,12 @@ class EditComponentPage extends HookWidget {
                         },
                       );
                       if (shouldRemove == true) {
-                        if (truthTable.value != null) {
+                        if (logicExpressions.value != null) {
+                          logicExpressions.value = logicExpressions.value?.toList()?..replaceRange(idx, idx+1, []);
+                          logicExpressionsParsed.value = logicExpressionsParsed.value?.toList()?..replaceRange(idx, idx+1, []);
+                          updateTTFromLE();
+                        }
+                        else if (truthTable.value != null) {
                           for (var i = 0; i < truthTable.value!.length; i++) {
                             truthTable.value!.replaceRange(i, i+1, [truthTable.value![i].replaceRange(idx, idx+1, "")]);
                           }
@@ -311,11 +373,37 @@ class EditComponentPage extends HookWidget {
                 childCount: outputs.value.length,
               ),
             ),
-            if (truthTable.value == null && logicExpression.value == null) ...[
+            const SliverToBoxAdapter(
+              child: Divider(),
+            ),
+            if (inputs.value.isEmpty && outputs.value.isEmpty)
+              SliverToBoxAdapter(
+                child: Text(
+                  'Add inputs and outputs to continue',
+                  style: Theme.of(context).textTheme.headline4,
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else if (inputs.value.isEmpty)
+              SliverToBoxAdapter(
+                child: Text(
+                  'Add inputs to continue',
+                  style: Theme.of(context).textTheme.headline4,
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else if (outputs.value.isEmpty)
+              SliverToBoxAdapter(
+                child: Text(
+                  'Add outputs to continue',
+                  style: Theme.of(context).textTheme.headline4,
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else if (truthTable.value == null && logicExpressions.value == null && !visualDesigned.value) ...[
               SliverToBoxAdapter(
                 child: Column(
                   children: [
-                    const Divider(),
                     Text(
                       'Choose component kind',
                       style: Theme.of(context).textTheme.headline4,
@@ -324,7 +412,15 @@ class EditComponentPage extends HookWidget {
                       padding: const EdgeInsets.all(8.0),
                       child: OutlinedButton(
                         onPressed: () {
-                          logicExpression.value = '';
+                          // For each output, a separate logic expression is needed
+                          logicExpressions.value = List.generate(
+                            outputs.value.length, 
+                            (index) => '',
+                          );
+                          logicExpressionsParsed.value = List.generate(
+                            outputs.value.length, 
+                            (index) => null,
+                          );
                         }, 
                         child: const Text('Logic Expression'),
                       ),
@@ -333,8 +429,13 @@ class EditComponentPage extends HookWidget {
                       padding: const EdgeInsets.all(8.0),
                       child: OutlinedButton(
                         onPressed: () {
+                          // Assign false by default to each output
                           final row = "0" * outputs.value.length;
-                          truthTable.value = List.generate(pow(2, inputs.value.length) as int, (_) => row);
+                          // There are 2^inputs combinations in a truth table
+                          truthTable.value = List.generate(
+                            pow(2, inputs.value.length) as int, 
+                            (_) => row,
+                          );
                         }, 
                         child: const Text('Truth Table'),
                       ),
@@ -342,7 +443,9 @@ class EditComponentPage extends HookWidget {
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: OutlinedButton(
-                        onPressed: null, 
+                        onPressed: () {
+                          visualDesigned.value = true;
+                        }, 
                         child: const Text('Visual Designer'),
                       ),
                     ),
@@ -350,30 +453,112 @@ class EditComponentPage extends HookWidget {
                 ),
               ),
             ],
-            if (logicExpression.value != null) ...[
-
-            ],
-            if (truthTable.value != null) ...[
+            if (logicExpressions.value != null) ...[
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Text(
-                    'Truth Table',
+                    outputs.value.length == 1 ? 'Logic Expression' : 'Logic Expressions',
                     style: Theme.of(context).textTheme.headline5,
                   ),
                 ),
               ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: LogicExpressionField(
+                        inputsListener: inputs,
+                        outputName: outputs.value[index],
+                        initialText: logicExpressions.value![index],
+                        onChanged: (newValue, newExpression) {
+                          logicExpressions.value = logicExpressions.value!.toList();
+                          logicExpressions.value![index] = newValue;
+                          logicExpressionsParsed.value = logicExpressionsParsed.value!.toList();
+                          logicExpressionsParsed.value![index] = newExpression;
+                          updateTTFromLE();
+                        },
+                        onInputError: () {
+                          logicExpressionsParsed.value = logicExpressionsParsed.value!.toList();
+                          logicExpressionsParsed.value![index] = null;
+                          updateTTFromLE();
+                        },
+                      ),
+                    );
+                  },
+                  childCount: logicExpressions.value!.length,
+                ),
+              ),
+            ],
+            if (truthTable.value != null) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Text(
+                    logicExpressions.value == null ? 'Truth Table' : 'Resulting Truth Table',
+                    style: Theme.of(context).textTheme.headline5,
+                  ),
+                ),
+              ),
+              if (logicExpressions.value == null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Tap output cells to toggle',
+                      style: Theme.of(context).textTheme.caption,
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: TruthTableEditor(
-                    truthTable: truthTable.value!,
-                    inputs: inputs.value,
-                    outputs: outputs.value,
-                    onUpdateTable: (idx, newValue) {
-                      truthTable.value = truthTable.value?.toList()?..replaceRange(idx, idx+1, [newValue]);
-                    },
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                          child: TruthTableEditor(
+                            truthTable: truthTable.value!,
+                            inputs: inputs.value,
+                            outputs: outputs.value,
+                            // Only allow updating truth table if it is *NOT* autogenerated by logic expressions
+                            onUpdateTable: logicExpressions.value != null ? null : (idx, newValue) {
+                              truthTable.value = truthTable.value?.toList()?..replaceRange(idx, idx+1, [newValue]);
+                            },
+                          ),
+                        ),
+                      );
+                    }
                   ),
+                ),
+              )
+            ],
+            if (visualDesigned.value) ...[
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    Text(
+                      "Visually Designed Component",
+                      style: Theme.of(context).textTheme.headline4,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (dirty) Text(
+                      "Save the component to open the designer",
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ) else Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: ElevatedButton(
+                        // TODO: Implement visual designer
+                        onPressed: null, 
+                        child: Text('Open Designer'),
+                      ),
+                    ),
+                  ],
                 ),
               )
             ],
@@ -391,6 +576,8 @@ class EditComponentPage extends HookWidget {
               inputs: inputs.value,
               outputs: outputs.value,
               truthTable: truthTable.value,
+              logicExpression: logicExpressions.value,
+              visualDesigned: visualDesigned.value,
             ));
             anySave.value = true;
             // TODO: Implement saving
