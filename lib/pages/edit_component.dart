@@ -449,6 +449,13 @@ class EditComponentPage extends HookWidget {
                         child: const Text('Visual Designer'),
                       ),
                     ),
+                    const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: OutlinedButton(
+                        onPressed: null, 
+                        child: const Text('Script'),
+                      ),
+                    ),
                   ],
                 ),
               ),
