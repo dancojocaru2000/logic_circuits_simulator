@@ -74,7 +74,8 @@ class ProjectsState extends ChangeNotifier {
       index.copyWith(
         projects: index.projects
           .where((p) => p.projectId != project.projectId)
-          .toList() + [project]
+          .followedBy([project])
+          .toList()
       )
     );
   }
