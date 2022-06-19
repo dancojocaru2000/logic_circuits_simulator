@@ -98,6 +98,7 @@ class EditComponentPage extends HookWidget {
                       Navigator.of(context).pop(true);
                     },
                     style: ButtonStyle(
+                      foregroundColor: MaterialStateProperty.all(Colors.white),
                       backgroundColor: MaterialStateProperty.all(Colors.red),
                     ),
                     child: const Text('Discard'),
@@ -193,6 +194,7 @@ class EditComponentPage extends HookWidget {
                                   Navigator.of(context).pop(true);
                                 },
                                 style: ButtonStyle(
+                                  foregroundColor: MaterialStateProperty.all(Colors.white),
                                   backgroundColor: MaterialStateProperty.all(Colors.red),
                                 ),
                                 child: const Text('Remove'),
@@ -285,6 +287,7 @@ class EditComponentPage extends HookWidget {
                                   Navigator.of(context).pop(true);
                                 },
                                 style: ButtonStyle(
+                                  foregroundColor: MaterialStateProperty.all(Colors.white),
                                   backgroundColor: MaterialStateProperty.all(Colors.red),
                                 ),
                                 child: const Text('Remove'),
