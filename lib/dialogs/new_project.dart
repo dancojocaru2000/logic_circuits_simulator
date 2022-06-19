@@ -1,7 +1,12 @@
+import 'dart:io';
+
+import 'package:archive/archive.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:logic_circuits_simulator/state/projects.dart';
 import 'package:logic_circuits_simulator/utils/provider_hook.dart';
+import 'package:provider/provider.dart';
 
 class NewProjectDialog extends HookWidget {
   const NewProjectDialog({Key? key}) : super(key: key);
@@ -19,6 +24,125 @@ class NewProjectDialog extends HookWidget {
         Navigator.pop(context);
       };
     }, [newDialogNameController.text]); 
+
+    final importProjectAction = useMemoized(() {
+      return () async {
+        final projectsState = Provider.of<ProjectsState>(context, listen: false);
+        final msg = ScaffoldMessenger.of(context);
+        final nav = Navigator.of(context);
+
+        try {
+          final inputFiles = await FilePicker.platform.pickFiles(
+            dialogTitle: 'Import Project',
+            allowedExtensions: Platform.isLinux || Platform.isWindows ? ['lcsproj'] : null,
+            lockParentWindow: true,
+            type: Platform.isLinux || Platform.isWindows ? FileType.custom : FileType.any,
+            allowMultiple: false,
+            withData: true,
+          );
+
+          if (inputFiles == null) {
+            return;
+          }
+
+          final inputFile = inputFiles.files.first;
+
+          final dec = ZipDecoder();
+          final archive = dec.decodeBytes(inputFile.bytes!);
+          
+          // bool editAfter = false;
+          final result = await projectsState.importProject(
+            archive: archive,
+            onConflictingId: () async {
+              final response = await showDialog<bool>(
+                barrierDismissible: false,
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text('Conflicting ID'),
+                    content: const Text('You already have a project with the same ID as the one you are importing.\n\nAre you sure you want to replace the current project with the imported one?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(false);
+                        }, 
+                        child: const Text('Cancel'),
+                      ),
+                      Theme(
+                        data: ThemeData(
+                          brightness: Theme.of(context).brightness,
+                          primarySwatch: Colors.red,
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(true);
+                          }, 
+                          child: const Text('Overwrite and import'),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+
+              // Allow conflicting id ONLY if allow button is explicitly tapped
+              return response == true;
+            },
+            onConflictingName: (String name) async {
+              final response = await showDialog<bool>(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text('Conflicting name'),
+                    content: Text('You already have a project named $name.\n\nYou may import the project and have both coexist, but confusion may arise.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(false);
+                        }, 
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(true);
+                        }, 
+                        child: const Text('Import anyway'),
+                      ),
+                    ],
+                  );
+                },
+              );
+
+              // Allow conflicting name UNLESS deny button is explicitly tapped
+              return response != false;
+            },
+          );
+
+          if (result != null) {
+            nav.pop();
+            // if (!editAfter) {
+              msg.showSnackBar(
+                SnackBar(
+                  content: Text('Project ${result.projectName} imported'),
+                ),
+              );
+            // }
+            // else {
+            //   // TODO: Allow editing project name in the future
+            // }
+          }
+        }
+        catch (e) {
+          nav.pop();
+          msg.showSnackBar(
+            SnackBar(
+              content: Text('Failed to import project: $e'),
+              duration: const Duration(seconds: 10),
+            ),
+          );
+        }
+      };
+    });
 
     return Dialog(
       child: SingleChildScrollView(
@@ -43,12 +167,7 @@ class NewProjectDialog extends HookWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        // TODO: Implement project importing
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Import coming soon...'),
-                        ));
-                      },
+                      onPressed: importProjectAction,
                       icon: const Icon(Icons.download),
                       label: const Text('Import Project'),
                     ),
