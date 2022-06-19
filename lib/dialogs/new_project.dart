@@ -20,7 +20,7 @@ class NewProjectDialog extends HookWidget {
     final newProjectAction = useMemoized(() {
       if (newDialogNameController.text.isEmpty) return null;
       return () {
-        projectsState.newProject(newDialogNameController.text);
+        projectsState.newProject(newDialogNameController.text.trim());
         Navigator.pop(context);
       };
     }, [newDialogNameController.text]); 
@@ -217,6 +217,9 @@ class NewProjectDialog extends HookWidget {
                           icon: const Icon(Icons.done),
                           onPressed: newProjectAction,
                         ),
+                        errorText: projectsState.projects.map((p) => p.projectName).contains(newDialogNameController.text.trim())
+                          ? 'A project with the same name already exists'
+                          : null,
                       ),
                       onSubmitted: newProjectAction == null ? null : (_) => newProjectAction(),
                     ),

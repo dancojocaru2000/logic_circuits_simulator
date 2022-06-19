@@ -168,9 +168,12 @@ class EditComponentPage extends HookWidget {
               sliver: SliverToBoxAdapter(
                 child: TextField(
                   controller: componentNameEditingController,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
                     labelText: 'Component name',
+                    errorText: projectState.index.components.where((c) => c.componentId != ce().componentId).map((c) => c.componentName).contains(componentNameEditingController.text.trim())
+                      ? 'A component with the same name already exists'
+                      : null,
                   ),
                 ),
               ),
@@ -577,7 +580,7 @@ class EditComponentPage extends HookWidget {
         floatingActionButton: !dirty ? null : FloatingActionButton(
           onPressed: () async {
             if (componentNameEditingController.text.isNotEmpty) {
-              await projectState.editComponent(ce().copyWith(componentName: componentNameEditingController.text));
+              await projectState.editComponent(ce().copyWith(componentName: componentNameEditingController.text.trim()));
             }
             await projectState.editComponent(ce().copyWith(
               inputs: inputs.value,
