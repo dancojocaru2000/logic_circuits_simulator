@@ -373,6 +373,9 @@ class EditComponentPage extends HookWidget {
                 ),
               )
             ],
+            const SliverPadding(
+              padding: EdgeInsets.only(bottom: 56 + 16 + 16),
+            ),
           ],
         ),
         floatingActionButton: !dirty ? null : FloatingActionButton(
