@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logic_circuits_simulator/models/projects.dart';
 import 'package:path_provider/path_provider.dart';
@@ -76,5 +77,52 @@ class ProjectsState extends ChangeNotifier {
           .toList() + [project]
       )
     );
+  }
+
+  Future<T> archiveProject<T>(ProjectEntry project, Future<T> Function(Archive archive) callback) async {
+    final projectsDir = await _getProjectsDir();
+
+    // Create dir where export is prepared
+    final exportDir = Directory(path.join(projectsDir.path, '.export'));
+    await exportDir.create();
+
+    // Write index.json with only that project
+    final exportIndex = index.copyWith(
+      projects: index.projects.where((p) => p.projectId == project.projectId).toList(growable: false),
+    );
+    final exportIndexFile = File(path.join(exportDir.path, 'index.json'));
+    await exportIndexFile.writeAsString(jsonEncode(exportIndex));
+
+    final exportProjectIdFile = File(path.join(exportDir.path, 'projectId.txt'));
+    await exportProjectIdFile.writeAsString(project.projectId);
+
+    // Copy project folder
+    final projectDir = Directory(path.join(projectsDir.path, project.projectId));
+    final exportProjectDir = Directory(path.join(exportDir.path, project.projectId));
+    await exportProjectDir.create();
+    await for (final entry in projectDir.list(recursive: true, followLinks: false)) {
+      final filename = path.relative(entry.path, from: projectDir.path);
+      if (entry is Directory) {
+        final newDir = Directory(path.join(exportProjectDir.path, filename));
+        await newDir.create(recursive: true);
+      }
+      else if (entry is File) {
+        await entry.copy(path.join(exportProjectDir.path, filename));
+      }
+      else if (entry is Link) {
+        final newLink = Link(path.join(exportProjectDir.path, filename));
+        await newLink.create(await entry.target());
+      }
+    }
+    
+    // Create archive
+    final archive = createArchiveFromDirectory(exportDir, includeDirName: false);
+
+    final result = await callback(archive);
+
+    // Remove preparation dir
+    await exportDir.delete(recursive: true);
+
+    return result;
   }
 }
