@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:logic_circuits_simulator/models/project.dart';
-import 'package:logic_circuits_simulator/models/projects.dart';
+import 'package:logic_circuits_simulator/models.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
@@ -55,9 +54,9 @@ class ProjectState extends ChangeNotifier {
     notifyListeners();
   }
 
-  set currentProject(ProjectEntry? p) {
+  Future<void> setCurrentProject(ProjectEntry? p) {
     _currentProject = p;
-    _loadProjectFiles().then((_) => notifyListeners());
+    return _loadProjectFiles().then((_) => notifyListeners());
   }
 
   void noProject() {

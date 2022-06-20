@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:logic_circuits_simulator/models.dart';
 
 part 'project.freezed.dart';
 part 'project.g.dart';
@@ -10,26 +11,4 @@ class ProjectIndex with _$ProjectIndex {
   }) = _ProjectIndex;
 
   factory ProjectIndex.fromJson(Map<String, Object?> json) => _$ProjectIndexFromJson(json);
-}
-
-@freezed
-class ComponentEntry with _$ComponentEntry {
-  const factory ComponentEntry({
-    required String componentId,
-    required String componentName,
-    @JsonKey(includeIfNull: false)
-    String? componentDescription,
-    required List<String> inputs,
-    required List<String> outputs,
-    @JsonKey(includeIfNull: false)
-    List<String>? truthTable,
-    @JsonKey(includeIfNull: false)
-    List<String>? logicExpression,
-    @JsonKey(defaultValue: false)
-    required bool visualDesigned,
-    @JsonKey(defaultValue: [])
-    required List<String> dependencies,
-  }) = _ComponentEntry;
-
-  factory ComponentEntry.fromJson(Map<String, Object?> json) => _$ComponentEntryFromJson(json);
 }

@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:logic_circuits_simulator/dialogs/new_project.dart';
-import 'package:logic_circuits_simulator/models/projects.dart';
+import 'package:logic_circuits_simulator/models.dart';
 import 'package:logic_circuits_simulator/pages/project.dart';
 import 'package:logic_circuits_simulator/state/project.dart';
 import 'package:logic_circuits_simulator/state/projects.dart';
@@ -58,7 +58,7 @@ class ProjectsPage extends StatelessWidget {
   }
 
   void onProjectSelect(BuildContext context, ProjectEntry p) {
-    Provider.of<ProjectState>(context, listen: false).currentProject = p;
+    Provider.of<ProjectState>(context, listen: false).setCurrentProject(p);
     Provider.of<ProjectState>(context, listen: false).registerSaveHandler((p) async {
       await Provider.of<ProjectsState>(context, listen: false).updateProject(p);
     });

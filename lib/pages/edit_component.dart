@@ -6,18 +6,28 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:logic_circuits_simulator/components/logic_expression_field.dart';
 import 'package:logic_circuits_simulator/components/truth_table.dart';
 import 'package:logic_circuits_simulator/dialogs/new_ask_for_name.dart';
-import 'package:logic_circuits_simulator/models/project.dart';
+import 'package:logic_circuits_simulator/dialogs/unsatisfied_dependencies.dart';
+import 'package:logic_circuits_simulator/models.dart';
+import 'package:logic_circuits_simulator/pages/design_component.dart';
+import 'package:logic_circuits_simulator/pages_arguments/design_component.dart';
+import 'package:logic_circuits_simulator/pages_arguments/edit_component.dart';
+import 'package:logic_circuits_simulator/state/component.dart';
 import 'package:logic_circuits_simulator/state/project.dart';
+import 'package:logic_circuits_simulator/state/projects.dart';
 import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
 import 'package:logic_circuits_simulator/utils/logic_expressions.dart';
 import 'package:logic_circuits_simulator/utils/logic_operators.dart';
 import 'package:logic_circuits_simulator/utils/provider_hook.dart';
+import 'package:provider/provider.dart';
+import 'package:tuple/tuple.dart';
 
 class EditComponentPage extends HookWidget {
   final bool newComponent;
   final ComponentEntry component;
 
-  const EditComponentPage({Key? key, this.newComponent = false, required this.component}) : super(key: key);
+  const EditComponentPage({super.key, this.newComponent = false, required this.component});
+  EditComponentPage.fromArguments(EditComponentPageArguments args, {super.key}) 
+    : component = args.component, newComponent = args.newComponent;
 
   static const String routeName = '/project/component/edit';
 
@@ -63,7 +73,7 @@ class EditComponentPage extends HookWidget {
           return false;
         }
 
-        if (componentNameEditingController.text != ce().componentName) {
+        if (componentNameEditingController.text.trim() != ce().componentName.trim()) {
           return true;
         }
         if (!le.equals(inputs.value, ce().inputs)) {
@@ -456,7 +466,7 @@ class EditComponentPage extends HookWidget {
                       padding: EdgeInsets.all(8.0),
                       child: OutlinedButton(
                         onPressed: null, 
-                        child: const Text('Script'),
+                        child: Text('Script'),
                       ),
                     ),
                   ],
@@ -563,9 +573,51 @@ class EditComponentPage extends HookWidget {
                     ) else Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: ElevatedButton(
-                        // TODO: Implement visual designer
-                        onPressed: null, 
-                        child: Text('Open Designer'),
+                        onPressed: () async {
+                          final nav = Navigator.of(context);
+                          final projectsState = Provider.of<ProjectsState>(context, listen: false);
+                          try {
+                            await Provider.of<ComponentState>(context, listen: false).setCurrentComponent(
+                              project: projectState.currentProject!, 
+                              component: component,
+                              onDependencyNeeded: (String projectId, String componentId) async {
+                                if (projectId == 'self') {
+                                  final maybeComponent = projectState.index.components.where((c) => c.componentId == componentId).firstOrNull;
+                                  return maybeComponent == null ? null : Tuple2(projectState.currentProject!, maybeComponent);
+                                }
+                                else {
+                                  final maybeProject = projectsState.projects.where((p) => p.projectId == projectId).firstOrNull;
+                                  if (maybeProject == null) {
+                                    return null;
+                                  }
+                                  final projectState = ProjectState();
+                                  await projectState.setCurrentProject(maybeProject);
+                                  final maybeComponent = projectState.index.components.where((c) => c.componentId == componentId).firstOrNull;
+                                  if (maybeComponent == null) {
+                                    return null;
+                                  }
+                                  return Tuple2(maybeProject, maybeComponent);
+                                }
+                              },
+                            );
+                            nav.pushNamed(
+                              DesignComponentPage.routeName, 
+                              arguments: DesignComponentPageArguments(
+                                component: component,
+                              ),
+                            );
+                          } on DependenciesNotSatisfiedException catch (e) {
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                return UnsatisfiedDependenciesDialog(
+                                  dependencies: e.dependencies,
+                                );
+                              }
+                            );
+                          }
+                        }, 
+                        child: const Text('Open Designer'),
                       ),
                     ),
                   ],

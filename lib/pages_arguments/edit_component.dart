@@ -1,5 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:logic_circuits_simulator/models/project.dart';
+import 'package:logic_circuits_simulator/models.dart';
 
 part 'edit_component.freezed.dart';
 

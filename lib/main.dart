@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl_standalone.dart';
+import 'package:logic_circuits_simulator/pages/design_component.dart';
 import 'package:logic_circuits_simulator/pages/edit_component.dart';
 import 'package:logic_circuits_simulator/pages/project.dart';
 import 'package:logic_circuits_simulator/pages/projects.dart';
 import 'package:logic_circuits_simulator/pages/settings.dart';
+import 'package:logic_circuits_simulator/pages_arguments/design_component.dart';
 import 'package:logic_circuits_simulator/pages_arguments/edit_component.dart';
+import 'package:logic_circuits_simulator/state/component.dart';
 import 'package:logic_circuits_simulator/state/project.dart';
 import 'package:logic_circuits_simulator/state/projects.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +32,7 @@ class MyApp extends StatelessWidget {
           providers: [
             ChangeNotifierProvider(create: (_) => ProjectsState()),
             ChangeNotifierProvider(create: (_) => ProjectState()),
+            ChangeNotifierProvider(create: (_) => ComponentState()),
           ],
           child: MaterialApp(
             title: 'Logic Circuits Simulator',
@@ -53,11 +57,12 @@ class MyApp extends StatelessWidget {
                 return const ProjectPage();
               },
               EditComponentPage.routeName: (context) {
-                final arguments = ModalRoute.of(context)!.settings.arguments as EditComponentPageArguments;
-                return EditComponentPage(
-                  component: arguments.component,
-                  newComponent: arguments.newComponent,
-                );
+                final args = ModalRoute.of(context)!.settings.arguments as EditComponentPageArguments;
+                return EditComponentPage.fromArguments(args);
+              },
+              DesignComponentPage.routeName: (context) {
+                final args = ModalRoute.of(context)!.settings.arguments as DesignComponentPageArguments;
+                return DesignComponentPage.fromArguments(args);
               },
             },
             initialRoute: MainPage.routeName,

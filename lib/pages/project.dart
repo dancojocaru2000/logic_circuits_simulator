@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:logic_circuits_simulator/models/project.dart';
+import 'package:logic_circuits_simulator/models.dart';
 import 'package:logic_circuits_simulator/pages/edit_component.dart';
 import 'package:logic_circuits_simulator/pages_arguments/edit_component.dart';
 import 'package:logic_circuits_simulator/state/project.dart';
