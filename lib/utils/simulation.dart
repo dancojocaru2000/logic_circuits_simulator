@@ -30,11 +30,16 @@ class SimulatedComponent {
   }
 
   Future<Map<String, bool>> simulate(Map<String, bool> inputs) async {
-    final input = int.parse(component.inputs.map((input) => inputs[input]! ? '1' : '0').join(), radix: 2);
+    final input = int.parse(
+      component.inputs.map((input) => inputs[input]! ? '1' : '0').join(), 
+      radix: 2,
+    );
     if (component.truthTable != null) {
       final output = component.truthTable![input];
       return { 
-        for (final it in component.outputs.indexedMap((index, outName) => [outName, output[index]])) 
+        for (final it in component.outputs.indexedMap(
+          (index, outName) => [outName, output[index]]
+        )) 
         it[0] : it[1] == '1'
       };
     }
@@ -62,7 +67,7 @@ class SimulatedComponent {
       // Create instances
       final wiring = state!.wiring;
       for (final instance in wiring.instances) {
-        _getInstance(instance.instanceId, instance.componentId);
+        await _getInstance(instance.instanceId, instance.componentId);
       }
 
       // Simulate
