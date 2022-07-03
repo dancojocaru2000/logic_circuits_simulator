@@ -12,13 +12,41 @@ class ComponentState extends ChangeNotifier {
   ProjectEntry? _currentProject;
   ComponentEntry? _currentComponent;
   Wiring _wiring = const Wiring(instances: [], wires: []);
+  Wiring? _wiringDraft;
+  Design _design = const Design(components: [], wires: [], inputs: [], outputs: []);
+  Design? _designDraft;
   SimulatedComponent? _simulatedComponent;
+  PartialVisualSimulation? _partialVisualSimulation;
 
   final Map<String, Tuple2<ProjectEntry, ComponentEntry>> _dependenciesMap = {};
 
   ProjectEntry? get currentProject => _currentProject;
   ComponentEntry? get currentComponent => _currentComponent;
   Wiring get wiring => _wiring;
+  Wiring get wiringDraft => _wiringDraft ?? _wiring;
+  Design get design => _design;
+  Design get designDraft => _designDraft ?? _design;
+  PartialVisualSimulation? get partialVisualSimulation => _partialVisualSimulation;
+
+  Future<SimulatedComponent> _onRequiredDependency(String depId) async {
+    final t = _dependenciesMap[depId]!;
+    final proj = t.item1;
+    final comp = t.item2;
+    final state = comp.visualDesigned ? ComponentState() : null;
+    if (state != null) {
+      await state.setCurrentComponent(
+        project: proj, 
+        component: comp, 
+        onDependencyNeeded: (projId, compId) async => _dependenciesMap['$projId/$compId'],
+      );
+    }
+    return SimulatedComponent(
+      project: proj, 
+      component: comp, 
+      onRequiredDependency: _onRequiredDependency,
+      state: state,
+    );
+  }
 
   Future<Directory> _getComponentDir() async {
     if (_currentProject == null) {
@@ -40,6 +68,11 @@ class ComponentState extends ChangeNotifier {
     return result;
   }
 
+  Future<File> _getDesignFile() async {
+    final result = File(path.join((await _getComponentDir()).path, 'design.json'));
+    return result;
+  }
+
   Future<void> _loadComponentFiles() async {
     final wiringFile = await _getWiringFile();
     if (!await wiringFile.exists()) {
@@ -49,6 +82,17 @@ class ComponentState extends ChangeNotifier {
     else {
       _wiring = Wiring.fromJson(jsonDecode(await wiringFile.readAsString()));
     }
+    _wiringDraft = null;
+
+    final designFile = await _getDesignFile();
+    if (!await designFile.exists()) {
+      _design = const Design(components: [], wires: [], inputs: [], outputs: []);
+      await designFile.writeAsString(jsonEncode(_design));
+    }
+    else {
+      _design = Design.fromJson(jsonDecode(await designFile.readAsString()));
+    }
+    _designDraft = null;
   }
 
   Future<void> setCurrentComponent({
@@ -78,7 +122,18 @@ class ComponentState extends ChangeNotifier {
       throw DependenciesNotSatisfiedException(dependencies: unsatisfiedDependencies);
     }
 
-    return _loadComponentFiles().then((_) => notifyListeners());
+    await _loadComponentFiles();
+
+    if (component.visualDesigned) {
+      _partialVisualSimulation = await PartialVisualSimulation.init(
+        project: project,
+        component: component,
+        state: this,
+        onRequiredDependency: _onRequiredDependency,
+      );
+    }
+
+    notifyListeners();
   }
 
   void noComponent() {
@@ -86,40 +141,62 @@ class ComponentState extends ChangeNotifier {
     _currentProject = null;
     _currentComponent = null;
     _wiring = const Wiring(instances: [], wires: []);
+    _design = const Design(components: [], wires: [], inputs: [], outputs: []);
+    _wiringDraft = _designDraft = null;
     _simulatedComponent = null;
+    _partialVisualSimulation = null;
 
     notifyListeners();
   }
 
-  Future<Map<String, bool>> simulate(Map<String, bool> inputs) async {
-    Future<SimulatedComponent> onRequiredDependency(String depId) async {
-      final t = _dependenciesMap[depId]!;
-      final proj = t.item1;
-      final comp = t.item2;
-      final state = comp.visualDesigned ? ComponentState() : null;
-      if (state != null) {
-        await state.setCurrentComponent(
-          project: proj, 
-          component: comp, 
-          onDependencyNeeded: (projId, compId) async => _dependenciesMap['$projId/$compId'],
-        );
+  Tuple2<ProjectEntry, ComponentEntry> getMetaByInstance(String instanceId) {
+    for (final instance in wiring.instances) {
+      if (instance.instanceId == instanceId) {
+        return _dependenciesMap[instance.componentId]!;
       }
-      return SimulatedComponent(
-        project: proj, 
-        component: comp, 
-        onRequiredDependency: onRequiredDependency,
-        state: state,
-      );
     }
+
+    throw Exception('Instance $instanceId not found in the dependencies map');
+  }
+
+  Future<Map<String, bool>> simulate(Map<String, bool> inputs) async {
 
     _simulatedComponent ??= SimulatedComponent(
       project: _currentProject!, 
       component: _currentComponent!, 
-      onRequiredDependency: onRequiredDependency,
+      onRequiredDependency: _onRequiredDependency,
       state: this,
     );
 
     return _simulatedComponent!.simulate(inputs);
+  }
+
+  Future<Design> updateDesign(Design newDesign, {bool commit = true}) async {
+    if (commit) {
+      _design = newDesign;
+      _designDraft = null;
+      final designFile = await _getDesignFile();
+      await designFile.writeAsString(jsonEncode(newDesign));
+    }
+    else {
+      _designDraft = newDesign;
+    }
+    notifyListeners();
+    return designDraft;
+  }
+
+  Future<Wiring> updateWiring(Wiring newWiring, {bool commit = true}) async {
+    if (commit) {
+      _wiring = newWiring;
+      _wiringDraft = null;
+      final wiringFile = await _getWiringFile();
+      await wiringFile.writeAsString(jsonEncode(newWiring));
+    }
+    else {
+      _wiringDraft = newWiring;
+    }
+    notifyListeners();
+    return wiringDraft;
   }
 }
 

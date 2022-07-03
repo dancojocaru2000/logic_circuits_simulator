@@ -633,9 +633,11 @@ packages:
   stack_canvas:
     dependency: "direct main"
     description:
-      name: stack_canvas
-      url: "https://pub.dartlang.org"
-    source: hosted
+      path: "."
+      ref: HEAD
+      resolved-ref: "83e1032940e9424572c60ddad397f38320ee9cd4"
+      url: "https://github.com/dancojocaru2000/stack_canvas.git"
+    source: git
     version: "0.2.0+2"
   stack_trace:
     dependency: transitive

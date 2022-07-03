@@ -38,7 +38,8 @@ dependencies:
   archive: ^3.3.0
   file_picker: ^4.6.1
   share_plus: ^4.0.8
-  stack_canvas: ^0.2.0+2
+  stack_canvas:
+    git: https://github.com/dancojocaru2000/stack_canvas.git
   tuple: ^2.0.0
 
 dev_dependencies:
