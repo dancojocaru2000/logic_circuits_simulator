@@ -363,17 +363,45 @@ class DesignComponentPage extends HookWidget {
         },
         child: OrientationBuilder(
           builder: (context, orientation) {
+            final stackCanvas = StackCanvas(
+              key: canvasKey,
+              canvasController: canvasController,
+              animationDuration: const Duration(milliseconds: 50),
+              // disposeController: false,
+              backgroundColor: Theme.of(context).colorScheme.background,
+            );
+
+            final debuggingButtons = DebuggingButtons(
+              partialSimulation: simulatePartially.value,
+              onPartialSimulationToggle: () {
+                simulatePartially.value = !simulatePartially.value;
+              },
+              onReset: simulatePartially.value ? () {
+                componentState.partialVisualSimulation!.restart();
+              } : null,
+              onNextStep: simulatePartially.value && componentState.partialVisualSimulation!.nextToSimulate.isNotEmpty ? () {
+                componentState.partialVisualSimulation!.nextStep();
+              } : null,
+            );
+
             if (orientation == Orientation.portrait) {
               return Column(
                 mainAxisSize: MainAxisSize.max,
                 children: [
                   Expanded(
-                    child: StackCanvas(
-                      key: canvasKey,
-                      canvasController: canvasController,
-                      animationDuration: const Duration(milliseconds: 50),
-                      // disposeController: false,
-                      backgroundColor: Theme.of(context).colorScheme.background,
+                    child: Stack(
+                      children: [
+                        stackCanvas,
+                        if (isSimulating.value)
+                          Positioned(
+                            top: 8,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: debuggingButtons,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -384,18 +412,66 @@ class DesignComponentPage extends HookWidget {
                 mainAxisSize: MainAxisSize.max,
                 children: [
                   Expanded(
-                    child: StackCanvas(
-                      key: canvasKey,
-                      canvasController: canvasController,
-                      animationDuration: const Duration(milliseconds: 50),
-                      // disposeController: false,
-                      backgroundColor: Theme.of(context).colorScheme.background,
+                    child: Stack(
+                      children: [
+                        stackCanvas,
+                        if (isSimulating.value)
+                          Positioned(
+                            top: 8,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: debuggingButtons,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
               );
             }
           }
+        ),
+      ),
+    );
+  }
+}
+
+class DebuggingButtons extends StatelessWidget {
+  final bool partialSimulation;
+
+  final void Function() onPartialSimulationToggle;
+  final void Function()? onReset;
+  final void Function()? onNextStep;
+
+  const DebuggingButtons({super.key, required this.partialSimulation, required this.onPartialSimulationToggle, this.onReset, this.onNextStep});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              onPressed: onPartialSimulationToggle, 
+              icon: Icon(
+                partialSimulation ? Icons.play_arrow : Icons.pause,
+              ),
+              tooltip: partialSimulation ? 'Simulate to end' : 'Simulate partially',
+            ),
+            IconButton(
+              onPressed: onNextStep,
+              icon: const Icon(Icons.navigate_next),
+              tooltip: 'Simulate next step',
+            ),
+            IconButton(
+              onPressed: onReset, 
+              icon: const Icon(Icons.replay_outlined),
+              tooltip: 'Restart simulation',
+            ),
+          ],
         ),
       ),
     );

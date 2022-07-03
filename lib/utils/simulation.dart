@@ -198,13 +198,7 @@ class PartialVisualSimulation with ChangeNotifier {
 
   Future<void> modifyInput(String inputName, bool newValue) {
     _outputsValues['self/$inputName'] = newValue;
-    for (final key in _outputsValues.keys.toList()) {
-      if (!key.startsWith('self/')) {
-        _outputsValues.remove(key);
-      }
-    }
-    _alreadySimulated.clear();
-    return reset();
+    return restart();
   }
 
   Future<void> provideInputs(Map<String, bool> inputs) {
@@ -213,6 +207,16 @@ class PartialVisualSimulation with ChangeNotifier {
     for (final entry in inputs.entries) {
       _outputsValues['self/${entry.key}'] = entry.value;
     }
+    return reset();
+  }
+
+  Future<void> restart() async {
+    for (final key in _outputsValues.keys.toList()) {
+      if (!key.startsWith('self/')) {
+        _outputsValues.remove(key);
+      }
+    }
+    _alreadySimulated.clear();
     return reset();
   }
 
