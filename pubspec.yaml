@@ -41,6 +41,7 @@ dependencies:
   stack_canvas:
     git: https://github.com/dancojocaru2000/stack_canvas.git
   tuple: ^2.0.0
+  hetu_script: ^0.3.12
 
 dev_dependencies:
   flutter_test:

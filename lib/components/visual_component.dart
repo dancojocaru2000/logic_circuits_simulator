@@ -154,7 +154,9 @@ class IOComponent extends HookWidget {
       onEnter: (event) => hovered.value = true,
       onExit: (event) => hovered.value = false,
       hitTestBehavior: HitTestBehavior.translucent,
+      opaque: false,
       child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
         onTap: onTap,
         child: Builder(
           builder: (context) {

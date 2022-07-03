@@ -6,6 +6,8 @@ import 'package:logic_circuits_simulator/components/visual_component.dart';
 import 'package:logic_circuits_simulator/models.dart';
 import 'package:logic_circuits_simulator/pages_arguments/design_component.dart';
 import 'package:logic_circuits_simulator/state/component.dart';
+import 'package:logic_circuits_simulator/state/project.dart';
+import 'package:logic_circuits_simulator/state/projects.dart';
 import 'package:logic_circuits_simulator/utils/future_call_debounce.dart';
 import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
 import 'package:logic_circuits_simulator/utils/provider_hook.dart';
@@ -13,6 +15,7 @@ import 'package:logic_circuits_simulator/utils/stack_canvas_controller_hook.dart
 import 'package:stack_canvas/stack_canvas.dart';
 
 Key canvasKey = GlobalKey();
+Key pickerKey = GlobalKey();
 
 class DesignComponentPage extends HookWidget {
   final ComponentEntry component;
@@ -38,6 +41,10 @@ class DesignComponentPage extends HookWidget {
 
     final movingWidgetUpdater = useState<void Function(double dx, double dy)?>(null);
     final movingWidget = useState<dynamic>(null);
+    final deleteOnDrop = useState<bool>(false);    
+    final designSelection = useState<String?>(null);
+    final wireToDelete = useState<String?>(null);
+
     final widgets = useMemoized(() => [
       for (final subcomponent in componentState.designDraft.components)
         CanvasObject(
@@ -90,6 +97,8 @@ class DesignComponentPage extends HookWidget {
               movingWidget.value = null;
             },
             child: MouseRegion(
+              opaque: false,
+              hitTestBehavior: HitTestBehavior.translucent,
               cursor: movingWidget.value == subcomponent ? SystemMouseCursors.move : MouseCursor.defer,
               child: VisualComponent(
                 name: componentState.getMetaByInstance(subcomponent.instanceId).item2.componentName, 
@@ -141,10 +150,12 @@ class DesignComponentPage extends HookWidget {
               movingWidgetUpdater.value = (dx, dy) {
                 debouncer.call([dx, dy]);
               };
+              movingWidget.value = input;
             },
             onPointerUp: (event) {
               componentState.updateDesign(componentState.designDraft);
               movingWidgetUpdater.value = null;
+              movingWidget.value = null;
             },
             child: IOComponent(
               input: true,
@@ -190,10 +201,12 @@ class DesignComponentPage extends HookWidget {
               movingWidgetUpdater.value = (dx, dy) {
                 debouncer.call([dx, dy]);
               };
+              movingWidget.value = output;
             },
             onPointerUp: (event) {
               componentState.updateDesign(componentState.designDraft);
               movingWidgetUpdater.value = null;
+              movingWidget.value = null;
             },
             child: IOComponent(
               input: false,
@@ -310,11 +323,41 @@ class DesignComponentPage extends HookWidget {
             dy: min(from.dy, to.dy),
             width: (to - from).dx.abs(),
             height: (to - from).dy.abs(),
-            child: IgnorePointer(
-              child: WireWidget(
-                from: from, 
-                to: to,
-                color: wireColor,
+            child: MouseRegion(
+              hitTestBehavior: HitTestBehavior.translucent,
+              opaque: false,
+              onEnter: (_) {
+                if (designSelection.value == 'wiring') {
+                  wireToDelete.value = wire.wireId;
+                }
+              },
+              onExit: (_) {
+                wireToDelete.value = null;
+              },
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () async {
+                  if (designSelection.value == 'wiring') {
+                    if (wireToDelete.value != wire.wireId) {
+                      wireToDelete.value = wire.wireId;
+                    }
+                    else {
+                      // Delete the wire
+                      await componentState.updateDesign(componentState.designDraft.copyWith(
+                        wires: componentState.designDraft.wires.where((w) => w.wireId != wireToDelete.value).toList(),
+                      ));
+                      await componentState.updateWiring(componentState.wiringDraft.copyWith(
+                        wires: componentState.wiringDraft.wires.where((w) => w.wireId != wireToDelete.value).toList(),
+                      ));
+                      wireToDelete.value = null;
+                    }
+                  }
+                },
+                child: WireWidget(
+                  from: from, 
+                  to: to,
+                  color: wireToDelete.value == wire.wireId ? Colors.red : wireColor,
+                ),
               ),
             ),
           );
@@ -344,95 +387,136 @@ class DesignComponentPage extends HookWidget {
         title: Text('${isSimulating.value ? 'Simulation' : 'Design'} - ${component.componentName}'),
         actions: [
           IconButton(
-            icon: Icon(isSimulating.value ? Icons.stop : Icons.start),
+            icon: Icon(isSimulating.value ? Icons.stop : Icons.play_arrow),
             tooltip: isSimulating.value ? 'Stop Simulation' : 'Start Simulation',
             onPressed: () {
               isSimulating.value = !isSimulating.value;
+              designSelection.value = null;
             },
           ),
         ],
       ),
-      body: GestureDetector(
-        onPanUpdate: (update) {
-          final hw = movingWidgetUpdater.value;
-          if (hw == null || isSimulating.value) {
-            canvasController.offset = canvasController.offset.translate(update.delta.dx, update.delta.dy);
+      body: OrientationBuilder(
+        builder: (context, orientation) {
+          final stackCanvas = GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onPanUpdate: (update) {
+              final hw = movingWidgetUpdater.value;
+              if (hw == null || isSimulating.value) {
+                canvasController.offset = canvasController.offset.translate(update.delta.dx, update.delta.dy);
+              }
+              else {
+                hw(update.delta.dx, update.delta.dy);
+              }
+            },
+            child: Stack(
+              children: [
+                StackCanvas(
+                  key: canvasKey,
+                  canvasController: canvasController,
+                  animationDuration: const Duration(milliseconds: 50),
+                  // disposeController: false,
+                  backgroundColor: Theme.of(context).colorScheme.background,
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: MouseRegion(
+                    hitTestBehavior: HitTestBehavior.translucent,
+                    opaque: false,
+                    onEnter: (_) {
+                      deleteOnDrop.value = true;
+                    },
+                    onExit: (_) {
+                      deleteOnDrop.value = false;
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Icon(
+                        Icons.delete,
+                        color: movingWidget.value != null && deleteOnDrop.value ? Colors.red : null,
+                      ),
+                    ),
+                  ),
+                )
+              ],
+            ),
+          );
+
+          final debuggingButtons = DebuggingButtons(
+            partialSimulation: simulatePartially.value,
+            onPartialSimulationToggle: () {
+              simulatePartially.value = !simulatePartially.value;
+            },
+            onReset: simulatePartially.value ? () {
+              componentState.partialVisualSimulation!.restart();
+            } : null,
+            onNextStep: simulatePartially.value && componentState.partialVisualSimulation!.nextToSimulate.isNotEmpty ? () {
+              componentState.partialVisualSimulation!.nextStep();
+            } : null,
+          );
+
+          final componentPicker = ComponentPicker(
+            key: pickerKey,
+            onSeletionUpdate: (selection) {
+              designSelection.value = selection;
+              if (selection != 'wiring') {
+                wireToDelete.value = null;
+              }
+            },
+          );
+
+          if (orientation == Orientation.portrait) {
+            return Column(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      stackCanvas,
+                      if (isSimulating.value)
+                        Positioned(
+                          top: 8,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: debuggingButtons,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (!isSimulating.value)
+                  componentPicker,
+              ],
+            );
           }
           else {
-            hw(update.delta.dx, update.delta.dy);
-          }
-        },
-        child: OrientationBuilder(
-          builder: (context, orientation) {
-            final stackCanvas = StackCanvas(
-              key: canvasKey,
-              canvasController: canvasController,
-              animationDuration: const Duration(milliseconds: 50),
-              // disposeController: false,
-              backgroundColor: Theme.of(context).colorScheme.background,
-            );
-
-            final debuggingButtons = DebuggingButtons(
-              partialSimulation: simulatePartially.value,
-              onPartialSimulationToggle: () {
-                simulatePartially.value = !simulatePartially.value;
-              },
-              onReset: simulatePartially.value ? () {
-                componentState.partialVisualSimulation!.restart();
-              } : null,
-              onNextStep: simulatePartially.value && componentState.partialVisualSimulation!.nextToSimulate.isNotEmpty ? () {
-                componentState.partialVisualSimulation!.nextStep();
-              } : null,
-            );
-
-            if (orientation == Orientation.portrait) {
-              return Column(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        stackCanvas,
-                        if (isSimulating.value)
-                          Positioned(
-                            top: 8,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: debuggingButtons,
-                            ),
+            return Row(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      stackCanvas,
+                      if (isSimulating.value)
+                        Positioned(
+                          top: 8,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: debuggingButtons,
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                ],
-              );
-            }
-            else {
-              return Row(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        stackCanvas,
-                        if (isSimulating.value)
-                          Positioned(
-                            top: 8,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: debuggingButtons,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }
+                ),
+                if (!isSimulating.value)
+                  componentPicker,
+              ],
+            );
           }
-        ),
+        }
       ),
     );
   }
@@ -475,6 +559,170 @@ class DebuggingButtons extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class ComponentPicker extends HookWidget {
+  const ComponentPicker({required this.onSeletionUpdate, super.key});
+
+  final void Function(String? selection) onSeletionUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final projectsState = useProvider<ProjectsState>();
+    final tickerProvider = useSingleTickerProvider();
+    final selection = useState<String?>(null);
+    final tabBarControllerState = useState<TabController?>(null    );
+    useEffect(() {
+      selection.addListener(() { 
+        onSeletionUpdate(selection.value);
+      });
+
+      tabBarControllerState.value = TabController(
+        length: 1 + projectsState.projects.length, 
+        vsync: tickerProvider,
+        initialIndex: 1,
+      );
+
+      tabBarControllerState.value!.addListener(() {
+        if (tabBarControllerState.value!.index == 0) {
+          selection.value = 'wiring';
+        }
+        else {
+          selection.value = null;
+        }
+      });
+
+      return () {
+        tabBarControllerState.value?.dispose();
+      };
+    }, []);
+    final tabBarController = tabBarControllerState.value!;
+
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        return SizedBox(
+          height: orientation == Orientation.portrait ? 200 : null,
+          width: orientation == Orientation.landscape ? 300 : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TabBar(
+                controller: tabBarController,
+                tabs: [
+                  const Tab(
+                    text: 'Wiring',
+                  ),
+                  for (final project in projectsState.projects)
+                    Tab(
+                      text: project.projectName,
+                    ),
+                ],
+                isScrollable: true,
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: tabBarController,
+                  children: [
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text(
+                              'To create wires, click a source and then click a sink to link them.',
+                            ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text(
+                              'To remove wires, click them or tap them twice.',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    for (final project in projectsState.projects)
+                      HookBuilder(
+                        builder: (context) {
+                          final scrollController = useScrollController();
+
+                          final projectState = useFuture(() async {
+                            final projectState = ProjectState();
+                            await projectState.setCurrentProject(project);
+                            return projectState;
+                          }());
+
+                          if (projectState.data == null) {
+                            return Container();
+                          }
+                          final components = projectState.data!.index.components;
+
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('To add a component, select it below and then click on the canvas to place it.'),
+                              ),
+                              Expanded(
+                                child: Scrollbar(
+                                  controller: scrollController,
+                                  scrollbarOrientation: orientation == Orientation.portrait ? ScrollbarOrientation.bottom : ScrollbarOrientation.right,
+                                  child: SingleChildScrollView(
+                                    controller: scrollController,
+                                    scrollDirection: orientation == Orientation.portrait ? Axis.horizontal : Axis.vertical,
+                                    child: Wrap(
+                                      direction: orientation == Orientation.portrait ? Axis.vertical : Axis.horizontal,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        for (final component in components)
+                                          IntrinsicWidth(
+                                            child: Card(
+                                              color: selection.value == '${project.projectId}/${component.componentId}' ? Theme.of(context).colorScheme.primaryContainer : null,
+                                              child: InkWell(
+                                                onTap: () {
+                                                  if (selection.value != '${project.projectId}/${component.componentId}') {
+                                                    selection.value = '${project.projectId}/${component.componentId}';
+                                                  }
+                                                  else {
+                                                    selection.value = null;
+                                                  }
+                                                },
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(8.0),
+                                                  child: Text(
+                                                    component.componentName,
+                                                    style: selection.value == '${project.projectId}/${component.componentId}' 
+                                                      ? TextStyle(
+                                                        inherit: true,
+                                                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                                      ) 
+                                                      : null,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                      )
+                  ],
+                ),
+              )
+            ],
+          ),
+        );
+      },
     );
   }
 }
