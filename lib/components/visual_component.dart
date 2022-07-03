@@ -10,13 +10,34 @@ class VisualComponent extends HookWidget {
   final List<String> outputs;
   final Map<String, Color?> inputColors;
   final Map<String, Color?> outputColors;
+  final bool isNextToSimulate;
 
-  VisualComponent({super.key, required this.name, required this.inputs, required this.outputs, Map<String, Color?>? inputColors, Map<String, Color?>? outputColors}) 
+  VisualComponent({super.key, required this.name, required this.inputs, required this.outputs, Map<String, Color?>? inputColors, Map<String, Color?>? outputColors, this.isNextToSimulate = false}) 
     : inputColors = inputColors ?? {}
     , outputColors = outputColors ?? {};
 
   @override
   Widget build(BuildContext context) {
+    final nextToSimulateFlashingAnimation = useAnimationController(
+      duration: const Duration(milliseconds: 500),
+      initialValue: 0.0,
+      lowerBound: 0.0,
+      upperBound: 1.0,
+    );
+    useEffect(() {
+      if (isNextToSimulate) {
+        nextToSimulateFlashingAnimation.repeat(
+          reverse: true,
+        );
+      }
+      else {
+        nextToSimulateFlashingAnimation.reset();
+      }
+
+      return null;
+    }, [isNextToSimulate]);
+    final nextToSimAnimProgress = useAnimation(nextToSimulateFlashingAnimation);
+
     final hovered = useState(false);
 
     final inputsWidth = inputs.map((input) => IOLabel.getNeededWidth(context, input)).fold<double>(0, (previousValue, element) => max(previousValue, element));
@@ -46,7 +67,11 @@ class VisualComponent extends HookWidget {
             width: 100,
             decoration: BoxDecoration(
               border: Border.all(
-                color: hovered.value ? Theme.of(context).colorScheme.primary : Colors.black,
+                color: Color.lerp(
+                  hovered.value ? Theme.of(context).colorScheme.primary : Colors.black,
+                  Colors.blue,
+                  nextToSimAnimProgress,
+                )!,
               ),
             ),
             child: Center(

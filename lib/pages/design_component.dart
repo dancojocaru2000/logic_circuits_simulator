@@ -107,6 +107,7 @@ class DesignComponentPage extends HookWidget {
                       : componentState.partialVisualSimulation!.outputsValues['${subcomponent.instanceId}/$output'] == false ? Colors.red 
                       : Colors.black,
                 } : null,
+                isNextToSimulate: isSimulating.value && componentState.partialVisualSimulation!.nextToSimulate.contains(subcomponent.instanceId),
               ),
             ),
           ),
