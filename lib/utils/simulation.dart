@@ -1,7 +1,9 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
+import 'package:hetu_script/hetu_script.dart';
 import 'package:logic_circuits_simulator/models.dart';
 import 'package:logic_circuits_simulator/state/component.dart';
+import 'package:logic_circuits_simulator/state/script.dart';
 import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
 import 'package:logic_circuits_simulator/utils/logic_expressions.dart';
 
@@ -55,6 +57,23 @@ class SimulatedComponent {
         },
       );
       return {for (final it in results) it[0] as String: it[1] as bool};
+    } else if (component.scriptBased) {
+      final state = ScriptState(
+        component: component,
+        project: project,
+        invokeInit: false,
+      );
+      await state.init();
+      if (!state.scriptExists) {
+        throw Exception('Script for component ${project.projectId}/${component.componentId} does not exist');
+      }
+      final hetu = Hetu();
+      hetu.init();
+      final result = hetu.eval(state.scriptContent!, invokeFunc: 'simulate', positionalArgs: [inputs]);
+      return {
+        for (final output in component.outputs)
+          output: result[output]
+      };
     } else if (state == null) {
       throw Exception('Cannot simulate designed component without its state');
     } else {

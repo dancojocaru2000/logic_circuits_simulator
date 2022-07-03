@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:collection/collection.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:logic_circuits_simulator/components/logic_expression_field.dart';
@@ -14,10 +16,13 @@ import 'package:logic_circuits_simulator/pages_arguments/edit_component.dart';
 import 'package:logic_circuits_simulator/state/component.dart';
 import 'package:logic_circuits_simulator/state/project.dart';
 import 'package:logic_circuits_simulator/state/projects.dart';
+import 'package:logic_circuits_simulator/state/script.dart';
 import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
 import 'package:logic_circuits_simulator/utils/logic_expressions.dart';
 import 'package:logic_circuits_simulator/utils/logic_operators.dart';
 import 'package:logic_circuits_simulator/utils/provider_hook.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:tuple/tuple.dart';
 
@@ -44,6 +49,7 @@ class EditComponentPage extends HookWidget {
         : List<LogicExpression?>.generate(logicExpressions.value!.length, (index) => null),
     );
     final visualDesigned = useState(ce().visualDesigned);
+    final scriptBased = useState(ce().scriptBased);
     final inputs = useState(ce().inputs.toList());
     final outputs = useState(ce().outputs.toList());
     final componentNameEditingController = useTextEditingController(text: ce().componentName);
@@ -64,7 +70,7 @@ class EditComponentPage extends HookWidget {
           // Don't allow saving empty outputs
           return false;
         }
-        if (truthTable.value == null && logicExpressions.value == null && !visualDesigned.value) {
+        if (truthTable.value == null && logicExpressions.value == null && !visualDesigned.value && !scriptBased.value) {
           // Don't allow saving components without functionality
           return false;
         }
@@ -91,6 +97,9 @@ class EditComponentPage extends HookWidget {
         if (visualDesigned.value != ce().visualDesigned) {
           return true;
         }
+        if (scriptBased.value != ce().scriptBased) {
+          return true;
+        }
         return false;
       },
       [
@@ -107,6 +116,8 @@ class EditComponentPage extends HookWidget {
         visualDesigned.value,
         ce().visualDesigned,
         logicExpressionsParsed.value,
+        ce().scriptBased,
+        scriptBased.value,
       ],
     );
 
@@ -413,7 +424,7 @@ class EditComponentPage extends HookWidget {
                   textAlign: TextAlign.center,
                 ),
               )
-            else if (truthTable.value == null && logicExpressions.value == null && !visualDesigned.value) ...[
+            else if (truthTable.value == null && logicExpressions.value == null && !visualDesigned.value && !scriptBased.value) ...[
               SliverToBoxAdapter(
                 child: Column(
                   children: [
@@ -462,11 +473,13 @@ class EditComponentPage extends HookWidget {
                         child: const Text('Visual Designer'),
                       ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.all(8.0),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
                       child: OutlinedButton(
-                        onPressed: null, 
-                        child: Text('Script'),
+                        onPressed: () async {
+                          scriptBased.value = true;
+                        }, 
+                        child: const Text('Script'),
                       ),
                     ),
                   ],
@@ -579,7 +592,7 @@ class EditComponentPage extends HookWidget {
                           try {
                             await Provider.of<ComponentState>(context, listen: false).setCurrentComponent(
                               project: projectState.currentProject!, 
-                              component: component,
+                              component: ce(),
                               onDependencyNeeded: (String projectId, String componentId) async {
                                 if (projectId == 'self') {
                                   final maybeComponent = projectState.index.components.where((c) => c.componentId == componentId).firstOrNull;
@@ -622,7 +635,95 @@ class EditComponentPage extends HookWidget {
                     ),
                   ],
                 ),
-              )
+              ),
+            ],
+            if (scriptBased.value) ...[
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    Text(
+                      "Script Component",
+                      style: Theme.of(context).textTheme.headline4,
+                      textAlign: TextAlign.center,
+                    ),
+                    HookBuilder(
+                      builder: (context) {
+                        final stateListenable = useState(
+                          ScriptState(
+                            project: projectState.currentProject!, 
+                            component: ce(),
+                          ),
+                        );
+                        final scriptState = useListenable(stateListenable.value);
+
+                        if (!scriptState.loaded) {
+                          return const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                    final picked = await FilePicker.platform.pickFiles(
+                                      dialogTitle: 'Select Script',
+                                      // allowedExtensions: ['ht', 'txt'],
+                                      allowMultiple: false,
+                                      type: FileType.any,
+                                    );
+                                    if (picked == null) {
+                                      return;
+                                    }
+                                    final file = File(picked.files.first.path!);
+                                    if (!await file.exists()) {
+                                      scaffoldMessenger.showSnackBar(
+                                        const SnackBar(
+                                          content: Text('The selected file does not exist'),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    await scriptState.setScriptContents(await file.readAsString());
+                                  }, 
+                                  child: Text(scriptState.scriptExists ? 'Replace Script' : 'Select Script'),
+                                ),
+                              ),
+                            ),
+                            if (scriptState.scriptContent != null)
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  scriptState.scriptContent!,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    inherit: true,
+                                    fontFamily: 'JetBrains Mono',
+                                    fontFamilyFallback: [
+                                      'JetBrains Mono',
+                                      'Ubuntu Mono',
+                                      'Menlo',
+                                      'Cascadia Code',
+                                      'Courier New',
+                                      'Courier',
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ],
             const SliverPadding(
               padding: EdgeInsets.only(bottom: 56 + 16 + 16),
@@ -640,9 +741,9 @@ class EditComponentPage extends HookWidget {
               truthTable: truthTable.value,
               logicExpression: logicExpressions.value,
               visualDesigned: visualDesigned.value,
+              scriptBased: scriptBased.value,
             ));
             anySave.value = true;
-            // TODO: Implement saving
           },
           tooltip: 'Save Component',
           child: const Icon(Icons.save),

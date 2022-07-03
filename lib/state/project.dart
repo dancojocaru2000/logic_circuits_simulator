@@ -77,6 +77,7 @@ class ProjectState extends ChangeNotifier {
       outputs: [],
       visualDesigned: false,
       dependencies: [],
+      scriptBased: false,
     );
     await _updateIndex(index.copyWith(components: index.components + [newComponent]));
     return newComponent;

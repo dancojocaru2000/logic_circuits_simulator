@@ -20,6 +20,8 @@ class ComponentEntry with _$ComponentEntry {
     required bool visualDesigned,
     @JsonKey(defaultValue: [])
     required List<String> dependencies,
+    @JsonKey(defaultValue: false)
+    required bool scriptBased,
   }) = _ComponentEntry;
 
   factory ComponentEntry.fromJson(Map<String, Object?> json) => _$ComponentEntryFromJson(json);
