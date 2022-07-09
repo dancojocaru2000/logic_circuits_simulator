@@ -418,27 +418,28 @@ class DesignComponentPage extends HookWidget {
                   // disposeController: false,
                   backgroundColor: Theme.of(context).colorScheme.background,
                 ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: MouseRegion(
-                    hitTestBehavior: HitTestBehavior.translucent,
-                    opaque: false,
-                    onEnter: (_) {
-                      deleteOnDrop.value = true;
-                    },
-                    onExit: (_) {
-                      deleteOnDrop.value = false;
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Icon(
-                        Icons.delete,
-                        color: movingWidget.value != null && deleteOnDrop.value ? Colors.red : null,
+                if (!isSimulating.value) 
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: MouseRegion(
+                      hitTestBehavior: HitTestBehavior.translucent,
+                      opaque: false,
+                      onEnter: (_) {
+                        deleteOnDrop.value = true;
+                      },
+                      onExit: (_) {
+                        deleteOnDrop.value = false;
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Icon(
+                          Icons.delete,
+                          color: movingWidget.value != null && deleteOnDrop.value ? Colors.red : null,
+                        ),
                       ),
                     ),
                   ),
-                )
               ],
             ),
           );
