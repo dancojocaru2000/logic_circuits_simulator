@@ -11,10 +11,28 @@ class VisualComponent extends HookWidget {
   final Map<String, Color?> inputColors;
   final Map<String, Color?> outputColors;
   final bool isNextToSimulate;
+  final void Function(String)? onInputHovered;
+  final void Function(String)? onInputUnhovered;
+  final void Function(String)? onOutputHovered;
+  final void Function(String)? onOutputUnhovered;
 
-  VisualComponent({super.key, required this.name, required this.inputs, required this.outputs, Map<String, Color?>? inputColors, Map<String, Color?>? outputColors, this.isNextToSimulate = false}) 
+  VisualComponent({
+      super.key,
+      required this.name,
+      required this.inputs,
+      required this.outputs,
+      Map<String, Color?>? inputColors,
+      Map<String, Color?>? outputColors,
+      this.isNextToSimulate = false,
+      this.onInputHovered,
+      this.onInputUnhovered,
+      this.onOutputHovered,
+      this.onOutputUnhovered,
+    }) 
     : inputColors = inputColors ?? {}
-    , outputColors = outputColors ?? {};
+    , outputColors = outputColors ?? {}
+    , assert((onInputHovered == null) == (onInputUnhovered == null))
+    , assert((onOutputHovered == null) == (onOutputUnhovered == null));
 
   @override
   Widget build(BuildContext context) {
@@ -40,12 +58,20 @@ class VisualComponent extends HookWidget {
 
     final hovered = useState(false);
 
+    useEffect(() {
+      if (onInputHovered != null || onOutputHovered != null) {
+        hovered.value = false;
+      }
+
+      return null;
+    }, [onInputHovered, onOutputHovered]);
+
     final inputsWidth = inputs.map((input) => IOLabel.getNeededWidth(context, input)).fold<double>(0, (previousValue, element) => max(previousValue, element));
     final outputsWidth = outputs.map((output) => IOLabel.getNeededWidth(context, output)).fold<double>(0, (previousValue, element) => max(previousValue, element));
 
     return MouseRegion(
-      onEnter: (event) => hovered.value = true,
-      onExit: (event) => hovered.value = false,
+      onEnter: onInputHovered == null && onOutputHovered == null ? (event) => hovered.value = true : null,
+      onExit: onInputUnhovered == null && onOutputUnhovered== null ? (event) => hovered.value = false : null, 
       child: Row(
         children: [
           Column(
@@ -59,6 +85,9 @@ class VisualComponent extends HookWidget {
                       ? Theme.of(context).colorScheme.primary 
                       : inputColors[input] ?? Colors.black,
                     width: inputsWidth,
+                    onHovered: onInputHovered == null ? null : () => onInputHovered!(input),
+                    onUnhovered: onInputUnhovered == null ? null : () => onInputUnhovered!(input),
+                    flashing: onInputHovered != null,
                   ),
               ),
             ],
@@ -92,6 +121,9 @@ class VisualComponent extends HookWidget {
                       ? Theme.of(context).colorScheme.primary 
                       : outputColors[output] ?? Colors.black,
                     width: outputsWidth,
+                    onHovered: onOutputHovered == null ? null : () => onOutputHovered!(output),
+                    onUnhovered: onOutputUnhovered == null ? null : () => onOutputUnhovered!(output),
+                    flashing: onOutputHovered != null,
                   ),
               ),
             ],
@@ -143,16 +175,58 @@ class IOComponent extends HookWidget {
   final double circleDiameter;
   final Color? color;
   final void Function()? onTap;
+  final void Function()? onHovered;
+  final void Function()? onUnhovered;
+  final bool flashing;
 
-  const IOComponent({super.key, required this.name, required this.input, this.width = 100, this.circleDiameter = 20, this.color, this.onTap});
+  const IOComponent({
+    super.key,
+    required this.name,
+    required this.input,
+    this.width = 100,
+    this.circleDiameter = 20,
+    this.color,
+    this.onTap,
+    this.onHovered,
+    this.onUnhovered,
+    this.flashing = false,
+  }) : assert((onHovered == null) == (onUnhovered == null));
 
   @override
   Widget build(BuildContext context) {
+    final flashingAnimation = useAnimationController(
+      duration: const Duration(milliseconds: 500),
+      initialValue: 0.0,
+      lowerBound: 0.0,
+      upperBound: 1.0,
+    );
+    useEffect(() {
+      if (flashing) {
+        flashingAnimation.repeat(
+          reverse: true,
+        );
+      }
+      else {
+        flashingAnimation.reset();
+      }
+
+      return null;
+    }, [flashing]);
+    final flashingAnimProgress = useAnimation(flashingAnimation);
+
     final hovered = useState(false);
 
+    useEffect(() {
+      if (onHovered != null) {
+        hovered.value = false;
+      }
+
+      return null;
+    }, [onHovered]);
+
     return MouseRegion(
-      onEnter: (event) => hovered.value = true,
-      onExit: (event) => hovered.value = false,
+      onEnter: (event) => onHovered != null ? onHovered!() : hovered.value = true,
+      onExit: (event) => onUnhovered != null ? onUnhovered!() : hovered.value = false,
       hitTestBehavior: HitTestBehavior.translucent,
       opaque: false,
       child: GestureDetector(
@@ -161,6 +235,11 @@ class IOComponent extends HookWidget {
         child: Builder(
           builder: (context) {
             final lineColor = hovered.value ? Theme.of(context).colorScheme.primary : color ?? Colors.black;
+            final animLineColor = Color.lerp(
+              lineColor,
+              Colors.blue,
+              flashingAnimProgress,
+            )!;
       
             return Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -169,7 +248,7 @@ class IOComponent extends HookWidget {
                   width: circleDiameter,
                   height: circleDiameter,
                   decoration: BoxDecoration(
-                    border: Border.all(color: lineColor),
+                    border: Border.all(color: animLineColor),
                     shape: BoxShape.circle,
                     color: color,
                   ),
@@ -179,7 +258,7 @@ class IOComponent extends HookWidget {
                   child: IOLabel(
                     label: name,
                     input: !input,
-                    lineColor: lineColor,
+                    lineColor: animLineColor,
                     width: width - circleDiameter,
                   ),
                 ),
@@ -187,7 +266,7 @@ class IOComponent extends HookWidget {
                   width: circleDiameter,
                   height: circleDiameter,
                   decoration: BoxDecoration(
-                    border: Border.all(color: lineColor),
+                    border: Border.all(color: animLineColor),
                     shape: BoxShape.circle,
                     color: color,
                   ),
@@ -205,35 +284,78 @@ class IOComponent extends HookWidget {
   }
 }
 
-class IOLabel extends StatelessWidget {
+class IOLabel extends HookWidget {
   final bool input;
   final String label;
   final Color lineColor;
   final double width;
+  final void Function()? onHovered;
+  final void Function()? onUnhovered;
+  final bool flashing;
 
-  const IOLabel({super.key, required this.lineColor, required this.label, required this.input, this.width = 80});
+  const IOLabel({super.key, required this.lineColor, required this.label, required this.input, this.width = 80, this.onHovered, this.onUnhovered, this.flashing = false,})
+    : assert((onHovered == null) == (onUnhovered == null));
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: 20,
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: lineColor),
+    final flashingAnimation = useAnimationController(
+      duration: const Duration(milliseconds: 500),
+      initialValue: 0.0,
+      lowerBound: 0.0,
+      upperBound: 1.0,
+    );
+    useEffect(() {
+      if (flashing) {
+        flashingAnimation.repeat(
+          reverse: true,
+        );
+      }
+      else {
+        flashingAnimation.reset();
+      }
+
+      return null;
+    }, [flashing]);
+    final flashingAnimProgress = useAnimation(flashingAnimation);
+
+    final hovered = useState(false);
+
+    return MouseRegion(
+      hitTestBehavior: onHovered != null ? HitTestBehavior.translucent : HitTestBehavior.deferToChild,
+      onEnter: onHovered == null ? null : (_) {
+        hovered.value = true;
+        onHovered!();
+      },
+      onExit: onUnhovered == null ? null : (_) {
+        hovered.value = false;
+        onUnhovered!();
+      },
+      child: Container(
+        width: width,
+        height: 20,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Color.lerp(
+                lineColor,
+                Colors.blue,
+                flashingAnimProgress,
+              )!,
+            ),
+          ),
         ),
-      ),
-      child: Align(
-        alignment: input ? Alignment.bottomRight : Alignment.bottomLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-          child: Text(
-            label,
-            style: const TextStyle(
-              inherit: true,
-              fontFeatures: [
-                FontFeature.tabularFigures(),
-              ],
+        child: Align(
+          alignment: input ? Alignment.bottomRight : Alignment.bottomLeft,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Text(
+              label,
+              style: const TextStyle(
+                inherit: true,
+                fontFeatures: [
+                  FontFeature.tabularFigures(),
+                ],
+              ),
             ),
           ),
         ),

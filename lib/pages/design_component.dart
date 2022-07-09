@@ -13,6 +13,7 @@ import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
 import 'package:logic_circuits_simulator/utils/provider_hook.dart';
 import 'package:logic_circuits_simulator/utils/stack_canvas_controller_hook.dart';
 import 'package:stack_canvas/stack_canvas.dart';
+import 'package:uuid/uuid.dart';
 
 Key canvasKey = GlobalKey();
 Key pickerKey = GlobalKey();
@@ -44,6 +45,8 @@ class DesignComponentPage extends HookWidget {
     final deleteOnDrop = useState<bool>(false);    
     final designSelection = useState<String?>(null);
     final wireToDelete = useState<String?>(null);
+    final sourceToConnect = useState<String?>(null);
+    final hoveredIO = useState<String?>(null);
 
     final widgets = useMemoized(() => [
       for (final subcomponent in componentState.designDraft.components)
@@ -117,6 +120,18 @@ class DesignComponentPage extends HookWidget {
                       : Colors.black,
                 } : null,
                 isNextToSimulate: isSimulating.value && componentState.partialVisualSimulation!.nextToSimulate.contains(subcomponent.instanceId),
+                onInputHovered: designSelection.value == 'wiring' && sourceToConnect.value != null ? (input) {
+                  hoveredIO.value = '${subcomponent.instanceId}/$input';
+                } : null,
+                onInputUnhovered: designSelection.value == 'wiring' && sourceToConnect.value != null ? (input) {
+                  hoveredIO.value = null;
+                } : null,
+                onOutputHovered: designSelection.value == 'wiring' && sourceToConnect.value == null ? (output) {
+                  hoveredIO.value = '${subcomponent.instanceId}/$output';
+                } : null,
+                onOutputUnhovered: designSelection.value == 'wiring' && sourceToConnect.value == null ? (output) {
+                  hoveredIO.value = null;
+                } : null,
               ),
             ),
           ),
@@ -169,6 +184,13 @@ class DesignComponentPage extends HookWidget {
               onTap: isSimulating.value ? () {
                 componentState.partialVisualSimulation!.toggleInput(input.name);
               } : null,
+              onHovered: designSelection.value == 'wiring' && sourceToConnect.value == null ? () {
+                hoveredIO.value = 'self/${input.name}';
+              } : null,
+              onUnhovered: designSelection.value == 'wiring' && sourceToConnect.value == null ? () {
+                hoveredIO.value = null;
+              } : null,
+              flashing: designSelection.value == 'wiring' && sourceToConnect.value == null,
             ),
           ),
         ),
@@ -217,6 +239,13 @@ class DesignComponentPage extends HookWidget {
                   : componentState.partialVisualSimulation!.inputsValues['self/${output.name}'] == false ? Colors.red
                   : null) 
                 : null,
+              onHovered: designSelection.value == 'wiring' && sourceToConnect.value != null ? () {
+                hoveredIO.value = 'self/${output.name}';
+              } : null,
+              onUnhovered: designSelection.value == 'wiring' && sourceToConnect.value != null ? () {
+                hoveredIO.value = null;
+              } : null,
+              flashing: designSelection.value == 'wiring' && sourceToConnect.value != null,
             ),
           ),
         ),
@@ -362,7 +391,7 @@ class DesignComponentPage extends HookWidget {
             ),
           );
         })(),
-    ], [componentState.designDraft, isSimulating.value, componentState.partialVisualSimulation!.outputsValues]);
+    ], [componentState.designDraft, isSimulating.value, componentState.partialVisualSimulation!.outputsValues, designSelection.value, sourceToConnect.value]);
     useEffect(() {
       final wList = widgets;
       canvasController.addCanvasObjects(wList);
@@ -407,6 +436,41 @@ class DesignComponentPage extends HookWidget {
               }
               else {
                 hw(update.delta.dx, update.delta.dy);
+              }
+            },
+            onTap: () {
+              if (designSelection.value == 'wiring') {
+                // Handle wire creation
+                if (hoveredIO.value == null) {
+                  // If clicking on something not hovered, ignore
+                  return;  
+                }
+                else if (sourceToConnect.value == null) {
+                  sourceToConnect.value = hoveredIO.value;
+                  hoveredIO.value = null;
+                } else {
+                  // Create wire only if sink is not already connected
+                  if (componentState.wiringDraft.wires.where((w) => w.input == hoveredIO.value).isNotEmpty) {
+                    // Sink already connected
+                    final sinkType = hoveredIO.value!.startsWith('self/') ? 'component output' : 'subcomponent input';
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Wire already connected to that $sinkType.'),
+                    ));
+                    return;
+                  }
+
+                  componentState.updateWiring(componentState.wiringDraft.copyWith(
+                    wires: componentState.wiringDraft.wires + [
+                      WiringWire(
+                        wireId: const Uuid().v4(), 
+                        output: sourceToConnect.value!, 
+                        input: hoveredIO.value!,
+                      ),
+                    ],
+                  ));
+                  sourceToConnect.value = null;
+                  hoveredIO.value = null;
+                }
               }
             },
             child: Stack(
@@ -463,6 +527,7 @@ class DesignComponentPage extends HookWidget {
               designSelection.value = selection;
               if (selection != 'wiring') {
                 wireToDelete.value = null;
+                sourceToConnect.value = null;
               }
             },
           );
@@ -716,10 +781,10 @@ class ComponentPicker extends HookWidget {
                             ],
                           );
                         }
-                      )
+                      ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         );
