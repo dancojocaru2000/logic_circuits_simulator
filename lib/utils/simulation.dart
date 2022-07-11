@@ -177,7 +177,7 @@ class PartialVisualSimulation with ChangeNotifier {
       if (depId != null) {
         _instances[instanceId] = await onRequiredDependency(depId);
       } else {
-        throw Exception('Attempted to get instance of unknown component');
+        throw Exception('Attempted to get instance of unknown component: $instanceId');
       }
     }
     return _instances[instanceId]!;
