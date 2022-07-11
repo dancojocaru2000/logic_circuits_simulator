@@ -616,7 +616,7 @@ class EditComponentPage extends HookWidget {
                             nav.pushNamed(
                               DesignComponentPage.routeName, 
                               arguments: DesignComponentPageArguments(
-                                component: component,
+                                component: ce(),
                               ),
                             );
                           } on DependenciesNotSatisfiedException catch (e) {
