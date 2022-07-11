@@ -73,8 +73,7 @@ class ProjectsState extends ChangeNotifier {
     await _updateIndex(
       index.copyWith(
         projects: index.projects
-          .where((p) => p.projectId != project.projectId)
-          .followedBy([project])
+          .map((p) => p.projectId == project.projectId ? project : p)
           .toList()
       )
     );

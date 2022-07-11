@@ -140,7 +140,7 @@ class VisualComponent extends HookWidget {
   }
 
   static double getHeightOfIO(BuildContext context, List<String> options, int index, [TextStyle? textStyle]) {
-    assert(index < options.length);
+    assert(index <= options.length);
     getHeightOfText(String text) {
       final textPainter = TextPainter(
         text: TextSpan(
@@ -163,7 +163,9 @@ class VisualComponent extends HookWidget {
     for (var i = 0; i < index; i++) {
       result += 5.0 + getHeightOfText(options[i]) + 5.0;
     }
-    result += 5.0 + getHeightOfText(options[index]);
+    if (index < options.length) {
+      result += 5.0 + getHeightOfText(options[index]);
+    }
     return result;
   }
 }

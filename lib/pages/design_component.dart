@@ -12,7 +12,9 @@ import 'package:logic_circuits_simulator/utils/future_call_debounce.dart';
 import 'package:logic_circuits_simulator/utils/iterable_extension.dart';
 import 'package:logic_circuits_simulator/utils/provider_hook.dart';
 import 'package:logic_circuits_simulator/utils/stack_canvas_controller_hook.dart';
+import 'package:provider/provider.dart';
 import 'package:stack_canvas/stack_canvas.dart';
+import 'package:tuple/tuple.dart';
 import 'package:uuid/uuid.dart';
 
 Key canvasKey = GlobalKey();
@@ -56,12 +58,18 @@ class DesignComponentPage extends HookWidget {
         final cs = componentState;
         // First remove all connected wires
         if (w is DesignComponent) {
+          // Get project state to be able to remove dependency
+          final projectState = Provider.of<ProjectState>(context, listen: false);
+
           final wires = cs.wiringDraft.wires
             .where(
               (wire) => wire.input.startsWith('${w.instanceId}/') || wire.output.startsWith('${w.instanceId}/')
             )
             .map((wire) => wire.wireId)
             .toList();
+
+          // Get component id before removing
+          final componentId = cs.wiringDraft.instances.where((inst) => inst.instanceId == w.instanceId).first.componentId;
 
           await cs.updateDesign(cs.designDraft.copyWith(
             wires: cs.designDraft.wires
@@ -83,6 +91,12 @@ class DesignComponentPage extends HookWidget {
               .where((comp) => comp.instanceId != w.instanceId)
               .toList(),
           ));
+
+          // Remove dependency if it's the last of its kind
+          if (!cs.wiringDraft.instances.map((inst) => inst.componentId).contains(componentId)) {
+            componentState.removeDependency(componentId, modifyCurrentComponent: true);
+            await projectState.editComponent(componentState.currentComponent!);
+          }
         }
         else if (w is DesignInput) {
           final wires = cs.wiringDraft.wires
@@ -534,7 +548,7 @@ class DesignComponentPage extends HookWidget {
                 hw(update.delta.dx, update.delta.dy);
               }
             },
-            onTapUp: (update) {
+            onTapUp: (update) async {
               final canvasCenterLocation = canvasController.canvasSize / 2;
               final canvasCenterLocationOffset = Offset(canvasCenterLocation.width, canvasCenterLocation.height);
               final canvasLocation = update.localPosition - canvasCenterLocationOffset + canvasController.offset;
@@ -603,7 +617,62 @@ class DesignComponentPage extends HookWidget {
                 designSelection.value = null;
               }
               else {
+                final currentProjectState = Provider.of<ProjectState>(context, listen: false);
+
                 // Add subcomponent
+                final splitted = ds.split('/');
+                var projectId = splitted[0];
+                final componentId = splitted[1];
+
+                if (Provider.of<ProjectState>(context, listen: false).currentProject!.projectId == projectId) {
+                  projectId = 'self';
+                }
+
+                final depId = '$projectId/$componentId';
+                final project = projectId == 'self' 
+                  ? Provider.of<ProjectState>(context, listen: false).currentProject! 
+                  : Provider.of<ProjectsState>(context, listen: false).index.projects.where((p) => p.projectId == projectId).first;
+                final projectState = ProjectState();
+                await projectState.setCurrentProject(project);
+                final component = projectState.index.components.where((c) => c.componentId == componentId).first;
+
+                // Add dependency
+                if (!componentState.hasDependency(depId)) {
+                  componentState.addDependency(
+                    depId, 
+                    Tuple2(
+                      project,
+                      component,
+                    ),
+                    modifyCurrentComponent: true,
+                  );
+                  await currentProjectState.editComponent(componentState.currentComponent!);
+                }
+
+                // Create component instance
+                final instanceId = const Uuid().v4();
+                await componentState.updateWiring(componentState.wiringDraft.copyWith(
+                  instances: componentState.wiringDraft.instances + [
+                    WiringInstance(
+                      componentId: depId,
+                      instanceId: instanceId,
+                    ),
+                  ],
+                ));
+                await componentState.updateDesign(componentState.designDraft.copyWith(
+                  components: componentState.designDraft.components + [
+                    DesignComponent(
+                      instanceId: instanceId,
+                      x: canvasLocation.dx,
+                      y: canvasLocation.dy,
+                    ),
+                  ],
+                ));
+
+                // Recreate simulation with new subcomponent
+                await componentState.recreatePartialSimulation();
+
+                designSelection.value = null;
               }
             },
             child: Stack(

@@ -115,7 +115,7 @@ class ComponentState extends ChangeNotifier {
         unsatisfiedDependencies.add(depId);
       }
       else {
-        _dependenciesMap[depId] = maybeDep;
+        addDependency(depId, maybeDep);
       }
     }
     if (unsatisfiedDependencies.isNotEmpty) {
@@ -124,10 +124,34 @@ class ComponentState extends ChangeNotifier {
 
     await _loadComponentFiles();
 
-    if (component.visualDesigned) {
+    await recreatePartialSimulation();
+
+    notifyListeners();
+  }
+
+  void addDependency(String depId, Tuple2<ProjectEntry, ComponentEntry> dependency, {bool modifyCurrentComponent = false}) {
+    _dependenciesMap[depId] = dependency;
+    if (modifyCurrentComponent && _currentComponent?.dependencies.contains(depId) == false) {
+      _currentComponent = _currentComponent?.copyWith(
+        dependencies: (_currentComponent?.dependencies ?? []) + [depId],
+      );
+    }
+  }
+
+  void removeDependency(String depId, {bool modifyCurrentComponent = false}) {
+    _dependenciesMap.remove(depId);
+    if (modifyCurrentComponent && _currentComponent?.dependencies.contains(depId) == true) {
+      _currentComponent = _currentComponent?.copyWith(
+        dependencies: _currentComponent?.dependencies.where((dep) => dep != depId).toList() ?? [],
+      );
+    }
+  }
+
+  Future<void> recreatePartialSimulation() async {
+    if (_currentComponent!.visualDesigned) {
       _partialVisualSimulation = await PartialVisualSimulation.init(
-        project: project,
-        component: component,
+        project: _currentProject!,
+        component: _currentComponent!,
         state: this,
         onRequiredDependency: _onRequiredDependency,
       );
@@ -135,6 +159,8 @@ class ComponentState extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  bool hasDependency(String depId) => _dependenciesMap.containsKey(depId);
 
   void noComponent() {
     _dependenciesMap.clear();

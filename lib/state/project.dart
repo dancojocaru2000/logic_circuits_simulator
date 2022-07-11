@@ -90,8 +90,8 @@ class ProjectState extends ChangeNotifier {
     await _updateIndex(
       index.copyWith(
         components: index.components
-          .where((c) => c.componentId != component.componentId)
-          .toList() + [component],
+          .map((c) => c.componentId == component.componentId ? component : c)
+          .toList(),
       )
     );
   }
