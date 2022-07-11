@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'dart:math';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hetu_script/hetu_script.dart';
+import 'package:hetu_script/values.dart';
 import 'package:logic_circuits_simulator/components/visual_component.dart';
 import 'package:logic_circuits_simulator/models.dart';
 import 'package:logic_circuits_simulator/pages_arguments/design_component.dart';
@@ -42,6 +46,239 @@ class DesignComponentPage extends HookWidget {
     
     useListenable(componentState.partialVisualSimulation!);
 
+    // Scripting
+    final scriptingEnvironment = useState<Hetu?>(null);
+    final loadScript = useMemoized(() => (String script) {
+      scriptingEnvironment.value = Hetu();
+      scriptingEnvironment.value!.init(
+        externalFunctions: {
+          'unload': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            scriptingEnvironment.value = null;
+          },
+          'alert': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            final content = positionalArgs[0] as String;
+            final title = positionalArgs[1] as String? ?? 'Script Alert';
+            return showDialog(
+              context: context, 
+              builder: (context) {
+                return AlertDialog(
+                  title: Text(title),
+                  content: Text(content),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('OK'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+          'snackBar': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            final content = positionalArgs[0] as String;
+            final actionName = positionalArgs[1] as String?;
+            final actionFunction = positionalArgs[2];
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(content),
+              action: actionName == null ? null : SnackBarAction(
+                label: actionName, 
+                onPressed: () {
+                  if (actionFunction is String) {
+                    scriptingEnvironment.value?.invoke(actionFunction);
+                  }
+                  else if (actionFunction is HTFunction && scriptingEnvironment.value != null) {
+                    actionFunction.call();
+                  }
+                },
+              ),
+            ));
+          },
+          'setTimeout': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            final millis = positionalArgs[0] as int;
+            final function = positionalArgs[1];
+            final pos = namedArgs['positionalArgs'] ?? [];
+            final named = namedArgs['namedArgs'] ?? {};
+            Future.delayed(Duration(milliseconds: millis))
+              .then((_) {
+                if (function is String) {
+                  scriptingEnvironment.value?.invoke(function, positionalArgs: pos, namedArgs: Map.castFrom(named));
+                }
+                else if (function is HTFunction && scriptingEnvironment.value != null) {
+                  function.call(positionalArgs: pos, namedArgs: Map.castFrom(named));
+                }
+              });
+          },
+          'getInputs': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            return componentState.currentComponent!.inputs;
+          },
+          'getOutputs': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            return componentState.currentComponent!.outputs;
+          },
+          'simGetInputValues': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            return Map.of(componentState.partialVisualSimulation!.inputsValues);
+          },
+          'simGetOutputValues': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            return Map.of(componentState.partialVisualSimulation!.outputsValues);
+          },
+          'simSetInput': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            final inputName = positionalArgs[0] as String;
+            final value = positionalArgs[1] as bool;
+
+            return componentState.partialVisualSimulation!.modifyInput(inputName, value);
+          },
+          'simSetInputs': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            final inputs = positionalArgs[0] as Map;
+
+            return componentState.partialVisualSimulation!.provideInputs(inputs.map((key, value) => MapEntry(key as String, value as bool)));
+          },
+          'simSetInputsBinary': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            final inputs = componentState.currentComponent!.inputs;
+            final inputsNum = positionalArgs[0] as int;
+            final inputsBinary = inputsNum.toRadixString(2).padLeft(inputs.length, '0');
+            final inputsMap = Map.fromIterables(inputs, inputsBinary.characters.map((c) => c == '1'));
+
+            return componentState.partialVisualSimulation!.provideInputs(inputsMap);
+          },
+          'simNextStep': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            return componentState.partialVisualSimulation!.nextStep();
+          },
+          'simRestart': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            return componentState.partialVisualSimulation!.restart();
+          },
+          'simIsPartiallySimulating': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            return simulatePartially.value;
+          },
+          'simSetPartiallySimulating': (
+            HTEntity entity, {
+            List<dynamic> positionalArgs = const [],
+            Map<String, dynamic> namedArgs = const {},
+            List<HTType> typeArgs = const [],
+          }) {
+            simulatePartially.value = positionalArgs[0] as bool;
+          },
+        },
+      );
+      scriptingEnvironment.value!.eval('''
+        external fun unload
+        external fun alert(message: String, [title])
+        external fun snackBar(message: String, [actionName, actionFunction])
+        external fun setTimeout(millis: int, function, {positionalArgs, namedArgs})
+        external fun getInputs -> List
+        external fun getOutputs -> List
+        external fun simGetInputValues -> Map
+        external fun simGetOutputValues -> Map
+        external fun simSetInput(inputName: String, value: bool)
+        external fun simSetInputs(values: Map)
+        external fun simSetInputsBinary(values: int)
+        external fun simNextStep
+        external fun simRestart
+        external fun simIsPartiallySimulating -> bool
+        external fun simSetPartiallySimulating(partiallySimulating: bool)
+      ''');
+      scriptingEnvironment.value!.eval(script, type: ResourceType.hetuModule);
+      try {
+        scriptingEnvironment.value!.invoke('onLoad');
+      } catch (e) {
+        // onLoad handling is optional
+      }
+      try {
+        scriptingEnvironment.value!.invoke('getFunctions');
+      } catch (e) {
+        // Getting the callable functions of the script is mandatory
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Script Loading Failed'),
+              content: const Text("The script doesn't implement the getFunctions function."),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+        scriptingEnvironment.value = null;
+      }
+    }, [scriptingEnvironment.value]);
+
+    // Design
     final movingWidgetUpdater = useState<void Function(double dx, double dy)?>(null);
     final movingWidget = useState<dynamic>(null);
     final deleteOnDrop = useState<bool>(false);    
@@ -533,6 +770,95 @@ class DesignComponentPage extends HookWidget {
               designSelection.value = null;
             },
           ),
+          if (isSimulating.value)
+            IconButton(
+              icon: const Icon(Icons.description),
+              tooltip: 'Scripting',
+              onPressed: () {
+                showDialog(
+                  context: context, 
+                  builder: (context) {
+                    return AlertDialog(
+                      title: const Text('Scripting'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            title: const Text('Load Script...'),
+                            onTap: () async {
+                              final nav = Navigator.of(context);
+
+                              final selectedFiles = await FilePicker.platform.pickFiles(
+                                dialogTitle: "Load Script",
+                                // allowedExtensions: ['ht', 'txt'],
+                                type: FileType.any,
+                              );
+                              if (selectedFiles == null || selectedFiles.files.isEmpty) {
+                                return;
+                              }
+
+                              try {
+                                final file = File(selectedFiles.files[0].path!);
+                                loadScript(await file.readAsString());
+                              } catch (e) {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return AlertDialog(
+                                      title: const Text('Script Loading Error'),
+                                      content: Text(e.toString()),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: const Text('OK'),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              }
+                              nav.pop();
+                            },
+                          ),
+                          if (scriptingEnvironment.value != null) ...[
+                            const Divider(),
+                            for (final function in scriptingEnvironment.value!.invoke('getFunctions'))
+                              ListTile(
+                                title: Text(function),
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  try {
+                                    scriptingEnvironment.value!.invoke(function);
+                                  } on HTError catch (e) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) {
+                                        return AlertDialog(
+                                          title: const Text('Script Error'),
+                                          content: Text(e.toString()),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(), 
+                                              child: const Text('OK'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                    scriptingEnvironment.value = null;
+                                  }
+                                },
+                              ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            )
         ],
       ),
       body: OrientationBuilder(
