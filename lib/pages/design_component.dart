@@ -47,6 +47,99 @@ class DesignComponentPage extends HookWidget {
     final wireToDelete = useState<String?>(null);
     final sourceToConnect = useState<String?>(null);
     final hoveredIO = useState<String?>(null);
+    final deleteMovingWidget = useMemoized(
+      () => () async {
+        if (!deleteOnDrop.value) {
+          return;
+        }
+        final w = movingWidget.value;
+        final cs = componentState;
+        // First remove all connected wires
+        if (w is DesignComponent) {
+          final wires = cs.wiringDraft.wires
+            .where(
+              (wire) => wire.input.startsWith('${w.instanceId}/') || wire.output.startsWith('${w.instanceId}/')
+            )
+            .map((wire) => wire.wireId)
+            .toList();
+
+          await cs.updateDesign(cs.designDraft.copyWith(
+            wires: cs.designDraft.wires
+              .where((wire) => !wires.contains(wire.wireId))
+              .toList(),
+          ), commit: false);
+          await cs.updateWiring(cs.wiringDraft.copyWith(
+            wires: cs.wiringDraft.wires
+              .where((wire) => !wires.contains(wire.wireId))
+              .toList(),
+          ), commit: false);
+          await cs.updateDesign(cs.designDraft.copyWith(
+            components: cs.designDraft.components
+              .where((comp) => comp.instanceId != w.instanceId)
+              .toList(),
+          ));
+          await cs.updateWiring(cs.wiringDraft.copyWith(
+            instances: cs.wiringDraft.instances
+              .where((comp) => comp.instanceId != w.instanceId)
+              .toList(),
+          ));
+        }
+        else if (w is DesignInput) {
+          final wires = cs.wiringDraft.wires
+            .where(
+              (wire) => wire.output == 'self/${w.name}',
+            )
+            .map((wire) => wire.wireId)
+            .toList();
+
+          await cs.updateDesign(cs.designDraft.copyWith(
+            wires: cs.designDraft.wires
+              .where((wire) => !wires.contains(wire.wireId))
+              .toList(),
+          ), commit: false);
+          await cs.updateWiring(cs.wiringDraft.copyWith(
+            wires: cs.wiringDraft.wires
+              .where((wire) => !wires.contains(wire.wireId))
+              .toList(),
+          ));
+          await cs.updateDesign(cs.designDraft.copyWith(
+            inputs: cs.designDraft.inputs
+              .where((input) => input.name != w.name)
+              .toList(),
+          ));
+        }
+        else if (w is DesignOutput) {
+          final wires = cs.wiringDraft.wires
+            .where(
+              (wire) => wire.input == 'self/${w.name}',
+            )
+            .map((wire) => wire.wireId)
+            .toList();
+
+          await cs.updateDesign(cs.designDraft.copyWith(
+            wires: cs.designDraft.wires
+              .where((wire) => !wires.contains(wire.wireId))
+              .toList(),
+          ), commit: false);
+          await cs.updateWiring(cs.wiringDraft.copyWith(
+            wires: cs.wiringDraft.wires
+              .where((wire) => !wires.contains(wire.wireId))
+              .toList(),
+          ));
+          await cs.updateDesign(cs.designDraft.copyWith(
+            outputs: cs.designDraft.outputs
+              .where((output) => output.name != w.name)
+              .toList(),
+          ));
+        }
+      },
+      [
+        movingWidget.value,
+        deleteOnDrop.value,
+        componentState.wiringDraft,
+        componentState.designDraft,
+      ],
+    );
 
     final widgets = useMemoized(() => [
       for (final subcomponent in componentState.designDraft.components)
@@ -66,7 +159,7 @@ class DesignComponentPage extends HookWidget {
             Theme.of(context).textTheme.bodyMedium,
           ), 
           height: max(
-            componentState.getMetaByInstance(subcomponent.instanceId).item2.inputs.length, 
+            componentState.getMetaByInstance(subcomponent.instanceId).item2.inputs.length,
             componentState.getMetaByInstance(subcomponent.instanceId).item2.outputs.length, 
           ) * 30 + 10, 
           child: Listener(
@@ -95,6 +188,7 @@ class DesignComponentPage extends HookWidget {
               movingWidget.value = subcomponent;
             },
             onPointerUp: (event) {
+              deleteMovingWidget();
               componentState.updateDesign(componentState.designDraft);
               movingWidgetUpdater.value = null;
               movingWidget.value = null;
@@ -168,6 +262,7 @@ class DesignComponentPage extends HookWidget {
               movingWidget.value = input;
             },
             onPointerUp: (event) {
+              deleteMovingWidget();
               componentState.updateDesign(componentState.designDraft);
               movingWidgetUpdater.value = null;
               movingWidget.value = null;
@@ -226,6 +321,7 @@ class DesignComponentPage extends HookWidget {
               movingWidget.value = output;
             },
             onPointerUp: (event) {
+              deleteMovingWidget();
               componentState.updateDesign(componentState.designDraft);
               movingWidgetUpdater.value = null;
               movingWidget.value = null;
@@ -249,7 +345,7 @@ class DesignComponentPage extends HookWidget {
             ),
           ),
         ),
-      for (final wire in componentState.wiring.wires)
+      for (final wire in componentState.wiringDraft.wires)
         (() {
           const ioCircleDiameter = 20;
 
@@ -391,7 +487,7 @@ class DesignComponentPage extends HookWidget {
             ),
           );
         })(),
-    ], [componentState.designDraft, isSimulating.value, componentState.partialVisualSimulation!.outputsValues, designSelection.value, sourceToConnect.value]);
+    ], [componentState.wiringDraft, componentState.designDraft, isSimulating.value, componentState.partialVisualSimulation!.outputsValues, designSelection.value, sourceToConnect.value]);
     useEffect(() {
       final wList = widgets;
       canvasController.addCanvasObjects(wList);
