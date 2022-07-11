@@ -534,8 +534,16 @@ class DesignComponentPage extends HookWidget {
                 hw(update.delta.dx, update.delta.dy);
               }
             },
-            onTap: () {
-              if (designSelection.value == 'wiring') {
+            onTapUp: (update) {
+              final canvasCenterLocation = canvasController.canvasSize / 2;
+              final canvasCenterLocationOffset = Offset(canvasCenterLocation.width, canvasCenterLocation.height);
+              final canvasLocation = update.localPosition - canvasCenterLocationOffset + canvasController.offset;
+              final ds = designSelection.value;
+
+              if (ds == null) {
+                return;
+              }
+              if (ds == 'wiring') {
                 // Handle wire creation
                 if (hoveredIO.value == null) {
                   // If clicking on something not hovered, ignore
@@ -567,6 +575,35 @@ class DesignComponentPage extends HookWidget {
                   sourceToConnect.value = null;
                   hoveredIO.value = null;
                 }
+              }
+              else if (ds.startsWith('input:')) {
+                final inputName = ds.substring(6);
+                componentState.updateDesign(componentState.designDraft.copyWith(
+                  inputs: componentState.designDraft.inputs + [
+                    DesignInput(
+                      name: inputName,
+                      x: canvasLocation.dx - IOComponent.getNeededWidth(context, inputName) / 2,
+                      y: canvasLocation.dy,
+                    ),
+                  ],
+                ));
+                designSelection.value = null;
+              }
+              else if (ds.startsWith('output:')) {
+                final outputName = ds.substring(7);
+                componentState.updateDesign(componentState.designDraft.copyWith(
+                  outputs: componentState.designDraft.outputs + [
+                    DesignOutput(
+                      name: outputName,
+                      x: canvasLocation.dx - IOComponent.getNeededWidth(context, outputName) / 2,
+                      y: canvasLocation.dy,
+                    ),
+                  ],
+                ));
+                designSelection.value = null;
+              }
+              else {
+                // Add subcomponent
               }
             },
             child: Stack(
@@ -619,13 +656,14 @@ class DesignComponentPage extends HookWidget {
 
           final componentPicker = ComponentPicker(
             key: pickerKey,
-            onSeletionUpdate: (selection) {
+            onSelectionUpdate: (selection) {
               designSelection.value = selection;
               if (selection != 'wiring') {
                 wireToDelete.value = null;
                 sourceToConnect.value = null;
               }
             },
+            selection: designSelection.value,
           );
 
           if (orientation == Orientation.portrait) {
@@ -726,33 +764,29 @@ class DebuggingButtons extends StatelessWidget {
 }
 
 class ComponentPicker extends HookWidget {
-  const ComponentPicker({required this.onSeletionUpdate, super.key});
+  const ComponentPicker({required this.onSelectionUpdate, required this.selection, super.key});
 
-  final void Function(String? selection) onSeletionUpdate;
+  final String? selection;
+  final void Function(String? selection) onSelectionUpdate;
 
   @override
   Widget build(BuildContext context) {
     final projectsState = useProvider<ProjectsState>();
     final tickerProvider = useSingleTickerProvider();
-    final selection = useState<String?>(null);
-    final tabBarControllerState = useState<TabController?>(null    );
+    final tabBarControllerState = useState<TabController?>(null);
     useEffect(() {
-      selection.addListener(() { 
-        onSeletionUpdate(selection.value);
-      });
-
       tabBarControllerState.value = TabController(
-        length: 1 + projectsState.projects.length, 
+        length: 3 + projectsState.projects.length, 
         vsync: tickerProvider,
         initialIndex: 1,
       );
 
       tabBarControllerState.value!.addListener(() {
         if (tabBarControllerState.value!.index == 0) {
-          selection.value = 'wiring';
+          onSelectionUpdate('wiring');
         }
         else {
-          selection.value = null;
+          onSelectionUpdate(null);
         }
       });
 
@@ -775,6 +809,12 @@ class ComponentPicker extends HookWidget {
                 tabs: [
                   const Tab(
                     text: 'Wiring',
+                  ),
+                  const Tab(
+                    text: 'Inputs',
+                  ),
+                  const Tab(
+                    text: 'Outputs',
                   ),
                   for (final project in projectsState.projects)
                     Tab(
@@ -805,6 +845,18 @@ class ComponentPicker extends HookWidget {
                           ),
                         ],
                       ),
+                    ),
+                    IOComponentPickerOptions(
+                      orientation: orientation,
+                      outputs: false,
+                      selection: selection,
+                      onSelected: onSelectionUpdate,
+                    ),
+                    IOComponentPickerOptions(
+                      orientation: orientation,
+                      outputs: true,
+                      selection: selection,
+                      onSelected: onSelectionUpdate,
                     ),
                     for (final project in projectsState.projects)
                       HookBuilder(
@@ -844,21 +896,21 @@ class ComponentPicker extends HookWidget {
                                         for (final component in components)
                                           IntrinsicWidth(
                                             child: Card(
-                                              color: selection.value == '${project.projectId}/${component.componentId}' ? Theme.of(context).colorScheme.primaryContainer : null,
+                                              color: selection == '${project.projectId}/${component.componentId}' ? Theme.of(context).colorScheme.primaryContainer : null,
                                               child: InkWell(
                                                 onTap: () {
-                                                  if (selection.value != '${project.projectId}/${component.componentId}') {
-                                                    selection.value = '${project.projectId}/${component.componentId}';
+                                                  if (selection != '${project.projectId}/${component.componentId}') {
+                                                    onSelectionUpdate('${project.projectId}/${component.componentId}');
                                                   }
                                                   else {
-                                                    selection.value = null;
+                                                    onSelectionUpdate(null);
                                                   }
                                                 },
                                                 child: Padding(
                                                   padding: const EdgeInsets.all(8.0),
                                                   child: Text(
                                                     component.componentName,
-                                                    style: selection.value == '${project.projectId}/${component.componentId}' 
+                                                    style: selection == '${project.projectId}/${component.componentId}' 
                                                       ? TextStyle(
                                                         inherit: true,
                                                         color: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -885,6 +937,97 @@ class ComponentPicker extends HookWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class IOComponentPickerOptions extends HookWidget {
+  final Orientation orientation;
+  final bool outputs;
+  final String? selection;
+  final void Function(String? selection) onSelected;
+
+  const IOComponentPickerOptions({required this.orientation, required this.outputs, required this.selection, required this.onSelected, super.key,});
+
+  String getSelectionName(String option) => '${!outputs ? "input" : "output"}:$option';
+
+  @override
+  Widget build(BuildContext context) {
+    final componentState = useProvider<ComponentState>();
+    
+    final scrollController = useScrollController();
+
+    final options = !outputs ? componentState.currentComponent!.inputs : componentState.currentComponent!.outputs;
+
+    return Builder(
+      builder: (context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text('To add an ${!outputs ? "input" : "output"}, select it below and then click on the canvas to place it. You can only add one of each. Red ${!outputs ? "inputs" : "outputs"} have already been placed.'),
+            ),
+            Expanded(
+              child: Scrollbar(
+                controller: scrollController,
+                scrollbarOrientation: orientation == Orientation.portrait ? ScrollbarOrientation.bottom : ScrollbarOrientation.right,
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  scrollDirection: orientation == Orientation.portrait ? Axis.horizontal : Axis.vertical,
+                  child: Wrap(
+                    direction: orientation == Orientation.portrait ? Axis.vertical : Axis.horizontal,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (final option in options)
+                        IntrinsicWidth(
+                          child: Card(
+                            color: (
+                              !outputs
+                                ? componentState.designDraft.inputs.map((input) => input.name).contains(option)
+                                : componentState.designDraft.outputs.map((output) => output.name).contains(option)
+                              )
+                              ? const Color.fromARGB(100, 255, 0, 0)
+                              : selection == getSelectionName(option) 
+                              ? Theme.of(context).colorScheme.primaryContainer 
+                              : null,
+                            child: InkWell(
+                              onTap: (
+                                !outputs
+                                  ? componentState.designDraft.inputs.map((input) => input.name).contains(option)
+                                  : componentState.designDraft.outputs.map((output) => output.name).contains(option)
+                                ) ? null : () {
+                                if (selection == getSelectionName(option)) {
+                                  onSelected(null);
+                                }
+                                else {
+                                  onSelected(getSelectionName(option));
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  option,
+                                  style: selection == getSelectionName(option) 
+                                    ? TextStyle(
+                                      inherit: true,
+                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                    ) 
+                                    : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
     );
   }
 }
