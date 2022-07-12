@@ -1,0 +1,10 @@
+fun simulate(inputs) -> Map {
+    final result = Map()
+    if (inputs['A'] && inputs['B']) {
+        result['OUT'] = true
+    } else {
+        result['OUT'] = false
+    }
+    return result
+}
+

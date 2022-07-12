@@ -1,0 +1,42 @@
+var inputsValue = 0
+
+fun onLoad {
+    snackBar("Script loaded", "Start", start)
+}
+
+fun getFunctions {
+    return ["start", "random"]
+}
+
+fun start {
+    inputsValue = 0
+    simSetPartiallySimulating(false)
+    simRestart()
+    tick()
+}
+
+fun tick {
+    final inputs = getInputs()
+    final inputsLength = inputs.length
+
+    simSetInputsBinary(inputsValue)
+    inputsValue += 1
+    
+    if (inputsValue >= Math.pow(2, inputsLength)) {
+        inputsValue = 0
+        snackBar("Finished going through all possible values", "Restart", () {
+            start()
+        })
+    }
+    else {
+        setTimeout(1000, tick)
+    }
+}
+
+fun random {
+    final inputs = getInputs()
+    final inputsLength = inputs.length
+
+    simSetInputsBinary(Math.randomInt(Math.pow(2, inputsLength)))
+}
+
