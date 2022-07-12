@@ -799,6 +799,7 @@ class DesignComponentPage extends HookWidget {
 
                               try {
                                 final file = File(selectedFiles.files[0].path!);
+                                nav.pop();
                                 loadScript(await file.readAsString());
                               } catch (e) {
                                 showDialog(
@@ -819,7 +820,6 @@ class DesignComponentPage extends HookWidget {
                                   },
                                 );
                               }
-                              nav.pop();
                             },
                           ),
                           if (scriptingEnvironment.value != null) ...[
