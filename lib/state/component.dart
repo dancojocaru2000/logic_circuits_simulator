@@ -37,7 +37,7 @@ class ComponentState extends ChangeNotifier {
       await state.setCurrentComponent(
         project: proj, 
         component: comp, 
-        onDependencyNeeded: (projId, compId) async => _dependenciesMap['$projId/$compId'],
+        onDependencyNeeded: (projId, compId) async => _dependenciesMap['${projId == "self" ? proj.projectId : projId}/$compId'],
       );
     }
     return SimulatedComponent(
@@ -108,14 +108,30 @@ class ComponentState extends ChangeNotifier {
 
     // Load dependencies
     final unsatisfiedDependencies = <String>[];
-    for (final depId in component.dependencies) {
-      final splitted = depId.split('/');
-      final maybeDep = await onDependencyNeeded(splitted[0], splitted[1]);
-      if (maybeDep == null) {
-        unsatisfiedDependencies.add(depId);
-      }
-      else {
-        addDependency(depId, maybeDep);
+    final neededDependencies = component.dependencies.toList();
+    while (neededDependencies.isNotEmpty) {
+      final tmp = neededDependencies.toList();
+      neededDependencies.clear();
+      for (final depId in tmp) {
+        if (!hasDependency(depId)) {
+          final splitted = depId.split('/');
+          final maybeDep = await onDependencyNeeded(splitted[0], splitted[1]);
+          if (maybeDep == null) {
+            unsatisfiedDependencies.add(depId);
+          }
+          else {
+            addDependency(depId, maybeDep);
+            neededDependencies.addAll(
+              maybeDep.item2.dependencies
+              .map((depId) {
+                final splitted = depId.split('/');
+                final projectId = splitted[0] == 'self' ? maybeDep.item1.projectId : splitted[0];
+                return '$projectId/${splitted[1]}';
+              })
+              .where((depId) => !hasDependency(depId))
+            );
+          }
+        }
       }
     }
     if (unsatisfiedDependencies.isNotEmpty) {

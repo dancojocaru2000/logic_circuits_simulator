@@ -24,7 +24,9 @@ class SimulatedComponent {
       String instanceId, String? depId) async {
     if (!_instances.containsKey(instanceId)) {
       if (depId != null) {
-        _instances[instanceId] = await onRequiredDependency(depId);
+        final splitted = depId.split('/');
+        final projectId = splitted[0] == 'self' ? project.projectId : splitted[0];
+        _instances[instanceId] = await onRequiredDependency('$projectId/${splitted[1]}');
       } else {
         throw Exception('Attempted to get instance of unknown component');
       }
